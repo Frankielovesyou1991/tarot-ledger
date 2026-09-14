@@ -302,8 +302,8 @@ const sb = (window.supabase && window.supabase.createClient) ? window.supabase.c
 let user=null;
 function allDraws(){ return state.draws.slice().sort((a,b)=>a.ts<b.ts?1:-1); }
 function saveLocal(){ LS.set('tl.draws', state.draws); LS.set('tl.prefs', state.prefs); LS.set('tl.dirty', [...state.dirty]); LS.set('tl.deleted', [...state.deleted]); }
-const toRow = d=>({ id:d.id, user_id:user.id, ts:new Date(d.ts).toISOString(), question:d.question, card_id:d.cardId, rtype:d.rtype||null, odds:d.odds||null, reversed:!!d.reversed, variants:d.variants||[], heading:d.heading||null, entry:(d.entry==null?null:d.entry), resonance:d.resonance||null, note:d.note||'', check_at:d.checkAt?new Date(d.checkAt).toISOString():null, follow_up:d.followUp||null, source:d.source||'app' });
-const fromRow = r=>({ id:r.id, ts:localIso(new Date(r.ts)), question:r.question, cardId:r.card_id, rtype:r.rtype, odds:r.odds, reversed:!!r.reversed, variants:r.variants||[], heading:r.heading, entry:r.entry, resonance:r.resonance, note:r.note||'', checkAt:r.check_at?localIso(new Date(r.check_at)):null, followUp:r.follow_up||null, source:r.source||'app' });
+const toRow = d=>({ id:d.id, user_id:user.id, ts:new Date(d.ts).toISOString(), question:d.question, card_id:d.cardId, rtype:d.rtype||null, odds:d.odds||null, reversed:!!d.reversed, variants:d.variants||[], passages:d.passages||[], heading:d.heading||null, entry:(d.entry==null?null:d.entry), resonance:d.resonance||null, note:d.note||'', check_at:d.checkAt?new Date(d.checkAt).toISOString():null, follow_up:d.followUp||null, source:d.source||'app' });
+const fromRow = r=>({ id:r.id, ts:localIso(new Date(r.ts)), question:r.question, cardId:r.card_id, rtype:r.rtype, odds:r.odds, reversed:!!r.reversed, variants:r.variants||[], passages:r.passages||[], heading:r.heading, entry:r.entry, resonance:r.resonance, note:r.note||'', checkAt:r.check_at?localIso(new Date(r.check_at)):null, followUp:r.follow_up||null, source:r.source||'app' });
 function setStatus(html){ $('#status').innerHTML=html; }
 function statusLine(){
   if(!sb) return setStatus('<b class="off">Storage library failed to load.</b> Entries save on this device only.');
@@ -397,33 +397,48 @@ $('#drawbtn').addEventListener('click', ()=>{
   if(!q){ const t=$('#q'); t.scrollIntoView({behavior:'smooth',block:'center'}); t.focus(); toast('Write your question first.'); return; }
   const r = pickReading(state.prefs.rtype, state.prefs.odds, state.prefs.rev);
   const now=new Date();
-  state.pending = { id:uid(), ts:localIso(now), question:q, rtype:r.page, odds:D.daily_entries[r.page]?state.prefs.odds:'even', cardId:r.cardId, reversed:r.reversed, variants:r.variants, heading:r.heading, entry:r.entry, resonance:null, note:'', checkAt:null, followUp:null, source:'app' };
+  state.pending = { id:uid(), ts:localIso(now), question:q, rtype:r.page, odds:D.daily_entries[r.page]?state.prefs.odds:'even', cardId:r.cardId, reversed:r.reversed, variants:r.variants, passages:buildPassages(r.cardId, r.variants, r.heading), heading:r.heading, entry:r.entry, resonance:null, note:'', checkAt:null, followUp:null, source:'app' };
   sel.res=null; $('#note').value=''; checkBackUI($('#checkback'), state.pending);
   renderReveal(state.pending, $('#reveal'));
   scale('res','res');
   $('#revealwrap').hidden=false; $('#drawbtn').disabled=true;
   $('#reveal').scrollIntoView({behavior:'smooth',block:'start'});
 });
+// Some site entries run the roman numeral, card name and first sentence together on
+// one line. Split the name off for the heading and keep the sentence for the reading.
+function leadFor(cardId, heading){
+  const c = CARD[cardId];
+  let head = heading || (c ? c.name : ''), lead = null;
+  if(c && head.length > 42){
+    const i = head.toLowerCase().indexOf(c.name.toLowerCase());
+    lead = (i >= 0 ? head.slice(i + c.name.length) : head).replace(/^[\s:.–—-]+/,'').trim();
+    head = c.name;
+    if(lead && i >= 0 && !/^[A-Z0-9"‘“]/.test(lead)) lead = c.name + ' ' + lead;
+  }
+  return {head, lead};
+}
+// The exact passage shown, captured at draw time. Each card has dozens of write-ups on
+// the source site, so an index into the deck file is not a durable record of what you read.
+function buildPassages(cardId, variants, heading){
+  const vs = D.variants[cardId] || [];
+  const lead = leadFor(cardId, heading).lead;
+  const out = lead ? [{field:'', text:lead}] : [];
+  (variants||[]).map(i=>vs[i]).filter(Boolean).forEach(v=>out.push({field:v.field, text:v.text}));
+  return out;
+}
+function passagesFor(d){
+  if(Array.isArray(d.passages) && d.passages.length) return d.passages;
+  return buildPassages(d.cardId, d.variants, d.heading);
+}
 function readingBlocks(d){
-  const vs = D.variants[d.cardId];
-  const blocks = (d.variants||[]).map(i=>vs[i]).filter(Boolean);
-  return blocks.map(v=>el('div',{}, fl(v)?el('div',{class:'fld'},fl(v)):null, el('p',{}, v.text)));
+  return passagesFor(d).map(v=>el('div',{}, fl(v)?el('div',{class:'fld'},fl(v)):null, el('p',{}, v.text)));
 }
 function renderReveal(d, root){
   const c=CARD[d.cardId]; root.innerHTML='';
   const img=el('img',{src:c.img, alt:c.name+(d.reversed?' reversed':''), class:d.reversed?'rev':''});
   root.appendChild(img);
-  // some site entries run the card name and the first sentence together on one line;
-  // keep the name as the heading and move the rest into the reading so nothing is lost
-  let head = d.heading || c.name, lead = null;
-  if(head.length > 42){
-    const i = head.toLowerCase().indexOf(c.name.toLowerCase());
-    lead = (i >= 0 ? head.slice(i + c.name.length) : head).replace(/^[\s:.\u2013\u2014-]+/,'').trim();
-    head = c.name;
-    if(lead && i >= 0 && !/^[A-Z0-9"\u2018\u201c]/.test(lead)) lead = c.name + ' ' + lead;
-  }
-  root.appendChild(el('div',{}, el('div',{class:'eyebrow'}, LABEL[d.rtype]||d.rtype), el('h2',{}, head), d.reversed?el('div',{class:'small muted'},'reversed'):null));
-  const rd=el('div',{class:'reading'}, lead?el('div',{}, el('p',{}, lead)):null, ...readingBlocks(d));
+  root.appendChild(el('div',{}, el('div',{class:'eyebrow'}, LABEL[d.rtype]||d.rtype), el('h2',{}, leadFor(d.cardId, d.heading).head), d.reversed?el('div',{class:'small muted'},'reversed'):null));
+  const rd=el('div',{class:'reading'}, ...readingBlocks(d));
   root.appendChild(rd);
   const others = D.variants[d.cardId].map((v,i)=>({...v,i})).filter(v=>!(d.variants||[]).includes(v.i));
   const samePage = others.filter(v=>v.pages.includes(d.rtype));
@@ -529,7 +544,7 @@ function openSheet(id){
   sh.appendChild(el('div',{class:'grab'}));
   sh.appendChild(el('div',{class:'row',style:'justify-content:space-between'}, el('div',{}, el('div',{class:'eyebrow'}, new Date(d.ts).toLocaleString([], {weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})), el('h2',{}, c.name+(d.reversed?' reversed':''))), el('img',{src:c.img,alt:'',style:'width:56px;border-radius:6px;border:1px solid var(--line)'})));
   sh.appendChild(el('div',{}, el('div',{class:'eyebrow'},'Question'), el('p',{style:'font-size:18px'}, d.question)));
-  const rd=el('details',{}, el('summary',{}, 'Reading shown ('+(LABEL[d.rtype]||d.rtype)+')'), el('div',{class:'reading',style:'margin-top:10px'}, el('h3',{}, d.heading||c.name), ...readingBlocks(d))); sh.appendChild(rd);
+  const rd=el('details',{}, el('summary',{}, 'The reading you were given ('+(LABEL[d.rtype]||d.rtype)+')'), el('div',{class:'reading',style:'margin-top:10px'}, el('h3',{}, d.heading||c.name), ...readingBlocks(d))); sh.appendChild(rd);
   const scaleIn=(key, labels)=>{ const wrap=el('div',{class:'scale'}); const draw=()=>{ wrap.innerHTML=''; for(let i=1;i<=5;i++) wrap.appendChild(el('button',{type:'button','aria-pressed':String(local[key]===i), onclick:()=>{ local[key]=(local[key]===i?null:i); draw(); }}, String(i))); }; draw(); return el('div',{}, wrap, el('div',{class:'scale-ends'}, el('span',{},labels[0]), el('span',{},labels[1]))); };
   sh.appendChild(el('div',{class:'field'}, el('label',{}, 'Did it land?'), scaleIn('res',['nothing','dead on'])));
   const note=el('textarea',{placeholder:'How it landed at the time'}); note.value=d.note||''; sh.appendChild(el('div',{class:'field'}, el('label',{},'Note'), note));
