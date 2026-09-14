@@ -1,7 +1,7 @@
 {
   "name": "Tarot Ledger",
   "short_name": "Tarot",
-  "start_url": "./",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#121019",

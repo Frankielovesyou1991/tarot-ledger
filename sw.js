@@ -1,5 +1,5 @@
 const CACHE='tl-v1';
-const SHELL=['./','./index.html','./deck.js','./history.js','./manifest.json','./icon-192.png'];
+const SHELL=['./index.html','./deck.js','./history.js','./manifest.json','./icon-192.png'];
 self.addEventListener('install',e=>{ e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting())); });
 self.addEventListener('activate',e=>{ e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())); });
 self.addEventListener('fetch',e=>{
