@@ -168,8 +168,9 @@ hr{border:0;border-top:1px solid var(--line);margin:4px 0}
     <div><div class="eyebrow">Sign in to sync</div><p class="small muted">Your ledger is stored in your own Supabase database. Signed out, entries stay on this device only.</p></div>
     <input type="email" id="email" placeholder="Email" autocomplete="email" inputmode="email">
     <input type="password" id="pw" placeholder="Password" autocomplete="current-password">
-    <div class="row"><button class="btn primary" id="signin">Sign in</button><button class="btn" id="signup">Create account</button><button class="btn ghost" id="magic">Email me a link</button></div>
+    <div class="row"><button class="btn primary" id="signin">Sign in</button><button class="btn" id="signup">Create account</button><button class="btn ghost" id="magic">Email me a link</button><button class="btn ghost" id="forgot">Forgot password</button></div>
     <p class="small muted" id="authmsg"></p>
+    <div id="newpw" hidden class="stack"><div class="eyebrow">Set a new password</div><input type="password" id="pw2" placeholder="New password (6+ characters)" autocomplete="new-password"><div class="row"><button class="btn primary" id="setpw">Save password</button></div></div>
   </div>
 
   <!-- DRAW -->
@@ -351,7 +352,10 @@ async function initAuth(){
   $('#signin').onclick=async()=>{ say('Signing in…'); const {error}=await sb.auth.signInWithPassword({email:email.value.trim(), password:pw.value}); say(error?error.message:''); };
   $('#signup').onclick=async()=>{ if(!email.value.trim()||pw.value.length<6){ say('Email plus a password of at least 6 characters.'); return; } say('Creating account…'); const {data,error}=await sb.auth.signUp({email:email.value.trim(), password:pw.value, options:{emailRedirectTo:location.origin+location.pathname}}); if(error) say(error.message); else if(data.session) say(''); else say('Check your email for a confirmation link, then sign in.'); };
   $('#magic').onclick=async()=>{ if(!email.value.trim()){ say('Enter your email first.'); return; } say('Sending…'); const {error}=await sb.auth.signInWithOtp({email:email.value.trim(), options:{emailRedirectTo:location.origin+location.pathname}}); say(error?error.message:'Link sent. Open it on this device.'); };
-  sb.auth.onAuthStateChange((ev,session)=>{ user=session?session.user:null; authUi(); statusLine(); if(user) loadRemote(); else renderAll(); });
+  $('#forgot').onclick=async()=>{ if(!email.value.trim()){ say('Enter your email first.'); return; } say('Sending…'); const {error}=await sb.auth.resetPasswordForEmail(email.value.trim(), {redirectTo:location.origin+location.pathname}); say(error?error.message:'Reset link sent. Open it on this device, then set a new password here.'); };
+  $('#setpw').onclick=async()=>{ if(pw2.value.length<6){ say('Password needs 6+ characters.'); return; } const {error}=await sb.auth.updateUser({password:pw2.value}); if(error) say(error.message); else { say('Password saved.'); $('#newpw').hidden=true; pw2.value=''; } };
+  const pw2=$('#pw2');
+  sb.auth.onAuthStateChange((ev,session)=>{ user=session?session.user:null; authUi(); statusLine(); if(ev==='PASSWORD_RECOVERY'){ $('#auth').hidden=false; $('#newpw').hidden=false; say('Choose a new password.'); } if(user) loadRemote(); else renderAll(); });
   const {data}=await sb.auth.getSession(); user=data.session?data.session.user:null; authUi(); statusLine(); if(user) loadRemote();
 }
 
