@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#121019">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tarot">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<title>Tarot Ledger</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+:root{
+  --bg:#f2ecdf; --surface:#faf7ef; --surface-2:#ece5d4; --line:#d6cdb9; --text:#241f2c; --muted:#6f6879;
+  --accent:#9a6c16; --accent-ink:#fff8e8; --violet:#5c4f90; --good:#3d7a3a; --warn:#b34f3b; --neutral:#8a8496;
+  --shadow:0 12px 32px rgba(40,30,60,.18); --cardback:#2b2440; --cardback-2:#3a3160; --gold:#c9a24a;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#121019; --surface:#1b1826; --surface-2:#242031; --line:#332e44; --text:#ece4d3; --muted:#9b9388;
+    --accent:#dfb35a; --accent-ink:#1b1408; --violet:#9d8fd6; --good:#83b87c; --warn:#d8776a; --neutral:#7b7590;
+    --shadow:0 14px 36px rgba(0,0,0,.5); --cardback:#1e1a2e; --cardback-2:#2c264a; --gold:#dfb35a;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121019; --surface:#1b1826; --surface-2:#242031; --line:#332e44; --text:#ece4d3; --muted:#9b9388;
+  --accent:#dfb35a; --accent-ink:#1b1408; --violet:#9d8fd6; --good:#83b87c; --warn:#d8776a; --neutral:#7b7590;
+  --shadow:0 14px 36px rgba(0,0,0,.5); --cardback:#1e1a2e; --cardback-2:#2c264a; --gold:#dfb35a;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+img{max-width:100%}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Source Sans 3',system-ui,-apple-system,sans-serif;font-size:17px;line-height:1.45;min-height:100vh}
+h1,h2,h3{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;line-height:1.1;margin:0;text-wrap:balance}
+h1{font-size:30px}
+h2{font-size:26px}
+h3{font-size:21px}
+p{margin:0}
+button,select,textarea,input{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:0;padding:0}
+button:focus-visible,select:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+a{color:var(--violet)}
+.app{max-width:560px;margin:0 auto;padding:14px 16px calc(84px + env(safe-area-inset-bottom))}
+.topbar{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:4px 0 14px}
+.topbar .brand{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:600;letter-spacing:.01em}
+.topbar .date{color:var(--muted);font-size:14px}
+.eyebrow{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.muted{color:var(--muted)}
+.small{font-size:14px}
+.num{font-variant-numeric:tabular-nums}
+.stack{display:flex;flex-direction:column;gap:14px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+textarea,select,input[type=text],input[type=email],input[type=password]{width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--text)}
+textarea{min-height:74px;resize:vertical}
+select{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 18px) 55%,calc(100% - 13px) 55%;background-size:5px 5px;background-repeat:no-repeat;padding-right:36px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--surface-2);border-radius:999px;padding:6px 12px;font-size:14px;color:var(--text)}
+.chip[aria-pressed=true]{background:var(--violet);border-color:var(--violet);color:#fff}
+.scale{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.scale button{border:1px solid var(--line);background:var(--surface-2);border-radius:10px;padding:9px 0;font-weight:600;font-size:16px}
+.scale button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.scale-ends{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:4px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{padding:7px 12px;font-size:14px;background:var(--surface-2)}
+.seg button[aria-pressed=true]{background:var(--text);color:var(--bg)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:12px;padding:12px 18px;font-weight:600;border:1px solid var(--line);background:var(--surface-2);color:var(--text)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--warn);border-color:var(--warn)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.wide{width:100%}
+/* card back and reveal */
+.deckwrap{display:flex;justify-content:center;padding:10px 0 4px}
+.cardback{width:200px;aspect-ratio:9/16;border-radius:14px;background:
+  radial-gradient(circle at 50% 50%,var(--cardback-2) 0,transparent 55%),
+  repeating-linear-gradient(45deg,var(--cardback) 0 8px,var(--cardback-2) 8px 9px),
+  repeating-linear-gradient(-45deg,transparent 0 8px,rgba(255,255,255,.04) 8px 9px);
+  border:6px solid var(--gold);box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center;color:var(--gold);font-family:'Cormorant Garamond',serif;font-size:26px;letter-spacing:.14em;text-transform:uppercase;transition:transform .15s}
+.cardback:active{transform:scale(.98)}
+.cardback:disabled{opacity:.35}
+.reveal{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center}
+.reveal img{width:min(70vw,260px);aspect-ratio:9/16;object-fit:cover;border-radius:12px;box-shadow:var(--shadow);border:1px solid var(--line);background:var(--surface-2)}
+.reveal img.rev{transform:rotate(180deg)}
+@media (prefers-reduced-motion:no-preference){
+  .reveal img{animation:flip .6s ease-out}
+  @keyframes flip{from{transform:rotateY(90deg);opacity:.2}to{transform:rotateY(0);opacity:1}}
+  .reveal img.rev{animation:flipr .6s ease-out}
+  @keyframes flipr{from{transform:rotate(180deg) rotateY(90deg);opacity:.2}to{transform:rotate(180deg) rotateY(0);opacity:1}}
+}
+.reading{text-align:left;max-width:58ch;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.reading .fld{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-bottom:2px}
+.reading p{white-space:pre-line}
+details{border-top:1px solid var(--line);padding-top:10px}
+summary{cursor:pointer;color:var(--violet);font-weight:600;font-size:15px}
+.alt{border-left:3px solid var(--line);padding:6px 0 6px 12px;margin-top:10px;font-size:15px}
+/* log */
+.day{display:flex;flex-direction:column;gap:8px}
+.day h3{font-size:15px;font-family:'Source Sans 3',sans-serif;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:baseline}
+.entry{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:start;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;text-align:left;width:100%}
+.entry img{width:44px;aspect-ratio:9/16;object-fit:cover;border-radius:5px;border:1px solid var(--line)}
+.entry .t{font-weight:600}
+.entry .q{color:var(--muted);font-size:14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.entry .time{font-size:13px;color:var(--muted);white-space:nowrap}
+.pill{display:inline-block;font-size:12px;border-radius:999px;padding:2px 8px;font-weight:600;letter-spacing:.02em}
+.pill.true{background:var(--good);color:#fff}.pill.partly{background:var(--accent);color:var(--accent-ink)}.pill.no{background:var(--warn);color:#fff}.pill.unclear{background:var(--neutral);color:#fff}.pill.open{border:1px solid var(--line);color:var(--muted)}
+.dots{display:inline-flex;gap:3px;vertical-align:middle}
+.dots i{width:7px;height:7px;border-radius:50%;background:var(--line);display:inline-block}
+.dots i.on{background:var(--accent)}
+.banner{background:var(--surface-2);border:1px dashed var(--line);border-radius:12px;padding:10px 14px;font-size:15px}
+.queue{display:flex;flex-direction:column;gap:8px}
+.queue h3{font-size:15px;font-family:'Source Sans 3',sans-serif;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.due{font-size:12px;font-weight:600}
+.due.over{color:var(--warn)}
+.due.soon{color:var(--accent)}
+.checkrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input[type=datetime-local]{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;color:var(--text);font-size:15px}
+/* sheet */
+.sheet-bg{position:fixed;inset:0;background:rgba(10,8,16,.55);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.sheet{background:var(--surface);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px 16px calc(24px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px}
+.sheet .grab{width:44px;height:5px;border-radius:3px;background:var(--line);margin:0 auto}
+/* study */
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tiles.two{grid-template-columns:repeat(2,1fr)}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.tile .v{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:600;line-height:1}
+.tile .l{font-size:12px;color:var(--muted);margin-top:4px}
+canvas{width:100%;height:auto;display:block}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th{text-align:left;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:6px 6px 6px 0;border-bottom:1px solid var(--line)}
+td{padding:7px 6px 7px 0;border-bottom:1px solid var(--line);vertical-align:top}
+td.r,th.r{text-align:right}
+.tablewrap{overflow-x:auto}
+.bar{height:8px;border-radius:4px;background:var(--surface-2);position:relative;overflow:hidden}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:var(--accent);border-radius:4px}
+/* deck */
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.grid button{display:flex;flex-direction:column;gap:4px;align-items:center;font-size:12px;color:var(--muted);text-align:center}
+.grid img{width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
+.grid b{color:var(--text);font-weight:600;font-size:12px;line-height:1.15}
+/* tabbar */
+.tabbar{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);display:flex;justify-content:center;z-index:10;padding-bottom:env(safe-area-inset-bottom)}
+.tabbar div{display:flex;width:100%;max-width:560px}
+.tabbar button{flex:1;padding:10px 0 9px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;display:flex;flex-direction:column;align-items:center;gap:3px}
+.tabbar button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.tabbar button[aria-selected=true]{color:var(--accent)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom));background:var(--text);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:14px;z-index:30;box-shadow:var(--shadow)}
+.status{font-size:13px;color:var(--muted)}
+.status b{color:var(--good)}
+.status b.off{color:var(--warn)}
+hr{border:0;border-top:1px solid var(--line);margin:4px 0}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+<div class="app">
+  <div class="topbar"><div class="brand">Tarot Ledger</div><div class="date" id="today"></div></div>
+  <div class="panel stack" id="auth" hidden>
+    <div><div class="eyebrow">Sign in to sync</div><p class="small muted">Your ledger is stored in your own Supabase database. Signed out, entries stay on this device only.</p></div>
+    <input type="email" id="email" placeholder="Email" autocomplete="email" inputmode="email">
+    <input type="password" id="pw" placeholder="Password" autocomplete="current-password">
+    <div class="row"><button class="btn primary" id="signin">Sign in</button><button class="btn" id="signup">Create account</button><button class="btn ghost" id="magic">Email me a link</button></div>
+    <p class="small muted" id="authmsg"></p>
+  </div>
+
+  <!-- DRAW -->
+  <section id="s-draw" class="stack">
+    <div class="panel stack" id="ask">
+      <div class="field"><label for="q">The question</label>
+        <textarea id="q" placeholder="What are you actually asking? Be specific enough that you could later say whether the answer held up."></textarea></div>
+      <div class="field"><label for="rtype">Reading</label>
+        <select id="rtype"></select></div>
+      <div class="row" style="justify-content:space-between">
+        <div class="seg" id="odds" role="group" aria-label="Odds"><button data-v="site" aria-pressed="true">Site odds</button><button data-v="even" aria-pressed="false">Even 78</button></div>
+        <label class="row small" id="revwrap" style="gap:6px"><input type="checkbox" id="rev"> allow reversed</label>
+      </div>
+      <p class="small muted" id="oddsnote"></p>
+    </div>
+    <div class="deckwrap"><button class="cardback" id="drawbtn" aria-label="Draw a card">Draw</button></div>
+    <p class="small muted" style="text-align:center" id="drawcount"></p>
+
+    <div id="revealwrap" hidden class="stack">
+      <div class="panel reveal" id="reveal"></div>
+      <div class="panel stack" id="landing">
+        <h3>How it lands</h3>
+        <div class="field"><label>Does this land?</label>
+          <div class="scale" id="res"></div>
+          <div class="scale-ends"><span>nothing</span><span>dead on</span></div></div>
+        <div class="field"><label for="note">How it landed</label>
+          <textarea id="note" placeholder="Your insight: how it sits with you, what it seems to be about, what you're tempted to do because of it."></textarea></div>
+        <div class="field"><label>Check back on this</label>
+          <div id="checkback"></div>
+          <p class="small muted">Optional. Every draw without a verdict stays in the queue on the Log tab either way. A date just tells you when it is worth judging.</p></div>
+        <div class="row"><button class="btn primary" id="save">Save to ledger</button><button class="btn ghost" id="discard">Discard</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LOG -->
+  <section id="s-log" class="stack" hidden>
+    <div id="pending"></div>
+    <div id="loglist" class="stack"></div>
+  </section>
+
+  <!-- STUDY -->
+  <section id="s-study" class="stack" hidden></section>
+
+  <!-- DECK -->
+  <section id="s-deck" class="stack" hidden>
+    <div id="deckhome"></div>
+    <div id="cardpage" hidden></div>
+  </section>
+
+  <p class="status" id="status" style="margin-top:18px"></p>
+</div>
+
+<nav class="tabbar"><div>
+  <button data-tab="draw" aria-selected="true"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M12 8v8M8 12h8"/></svg>Draw</button>
+  <button data-tab="log" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>Log</button>
+  <button data-tab="study" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>Study</button>
+  <button data-tab="deck" aria-selected="false"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="10" height="15" rx="1.5"/><path d="M13 5l6 2-4 14-6-2"/></svg>Deck</button>
+</div></nav>
+
+<div id="sheetroot"></div>
+<div id="toastroot"></div>
+
+<script src="deck.js"></script>
+<script src="history.js"></script>
+<script>
+(function(){
+'use strict';
+const D = window.DECK; const H = (window.HISTORY && window.HISTORY.draws) || [];
+const CARD = {}; D.cards.forEach((c,i)=>{c.idx=i; CARD[c.id]=c;});
+const LABEL = {}; D.sets.forEach(s=>LABEL[s.page]=s.label);
+const SITE = 'https://www.dailytarotdraw.com/';
+const READINGS = [
+  'daily__tarot','free-tarot-card','daily-tarot-card-draw','draw-a-tarot-card','daily-card-revealed','yes-or-no-answer','free-daily-tarot-reading','single-card-tarot-reading','yes-or-no-tarot','love-tarot-yes-no','spiritual-guidance-tarot','career-tarot','money-tarot-spread','past-present-future-tarot','tarot-reading-online','tarot-card-meanings','free-tarot-reading-rider-waite','ask-the-oracle','how-to-do-a-tarot-reading-for-yourself','tarot-card','2-card-tarot','free-tarot-reading-love',
+  'aries-tarot-card-draw','taurus-tarot-card-draw','gemini-tarot-card-draw','cancer-tarot-card-draw','leo-tarot-card-draw','virgo-tarot-card-draw','libra-tarot-card-draw','scorpio-tarot-card-draw','sagittarius-tarot-card-draw','capricorn-tarot-card-draw','aquarius-tarot-card-draw','ophiuchus-tarot-reading','major-arcana-card-draw'
+].filter(p=>LABEL[p] || D.daily_entries[p]);
+const FIELD = {text:'',desc:'Meaning',challenge:'Challenge',action:'Action',key:'Keyword',upright:'Upright',reversed:'Reversed',answer:'Answer',meaning:'Meaning',meaning2:'Guidance',message:'Message',keywords:'Keywords',astrology:'Astrology',mind:'Mind',body:'Body',spirit:'Spirit',description:'',phrase:'Phrase',rw_meaning:'Meaning',rw_addendum:'',rw_love:'Love',name:''};
+
+// ---------- state ----------
+const fl = v=>(v.field in FIELD)?fl(v):v.field;
+const state = { draws:[], prefs:{rtype:'daily__tarot', odds:'site', rev:false}, pending:null, tab:'draw', cardOpen:null, dirty:new Set(), deleted:new Set() };
+const LS = { get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } }, set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} } };
+state.draws = LS.get('tl.draws',[]); Object.assign(state.prefs, LS.get('tl.prefs',{})); state.dirty=new Set(LS.get('tl.dirty',[])); state.deleted=new Set(LS.get('tl.deleted',[]));
+
+const $ = s=>document.querySelector(s);
+const el = (tag, attrs, ...kids)=>{ const n=document.createElement(tag); if(attrs) for(const k in attrs){ if(k==='class') n.className=attrs[k]; else if(k.startsWith('on')) n.addEventListener(k.slice(2),attrs[k]); else if(k==='html') n.innerHTML=attrs[k]; else n.setAttribute(k,attrs[k]); } kids.flat().forEach(k=>{ if(k==null) return; n.appendChild(typeof k==='string'?document.createTextNode(k):k); }); return n; };
+const esc = s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pad = n=>String(n).padStart(2,'0');
+const dayKey = d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const localIso = d=>`${dayKey(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+const fmtTime = d=>d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+const fmtDay = k=>{ const [y,m,dd]=k.split('-').map(Number); return new Date(y,m-1,dd).toLocaleDateString([], {weekday:'short', month:'short', day:'numeric'}); };
+const rnd = n=>Math.floor(Math.random()*n);
+const uid = ()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+let toastT; function toast(m){ const r=$('#toastroot'); r.innerHTML=''; r.appendChild(el('div',{class:'toast'},m)); clearTimeout(toastT); toastT=setTimeout(()=>r.innerHTML='',2200); }
+
+// ---------- variants ----------
+function variantsFor(page, cid){ return D.variants[cid].map((v,i)=>({...v,i})).filter(v=>v.pages.includes(page)); }
+function isReversedText(v){ return v.field==='reversed' || /^\s*(reversed|\(?in its reversed)/i.test(v.text) || (v.field==='rw_addendum' && /^reversed/i.test(v.text)) || (v.field==='rw_love' && /^reversed/i.test(v.text)); }
+function pageHasReversed(page){ return D.cards.some(c=>variantsFor(page,c.id).some(isReversedText)); }
+function pickReading(page, odds, allowRev){
+  const entries = D.daily_entries[page];
+  let cid, vidx=[], heading=null, entry=null, reversed=false;
+  if(entries && entries.length){
+    let e;
+    if(odds==='site'){ e = entries[rnd(entries.length)]; }
+    else { cid = D.cards[rnd(78)].id; const mine=entries.filter(x=>x.card===cid); e = mine.length?mine[rnd(mine.length)]:null; }
+    if(e){ cid=e.card; vidx=[e.v]; heading=e.heading; entry=e.i; }
+    else { vidx = variantsFor(page,cid).slice(0,1).map(v=>v.i); }
+  } else {
+    cid = D.cards[rnd(78)].id;
+    let vs = variantsFor(page,cid);
+    if(allowRev && pageHasReversed(page)){
+      reversed = Math.random()<0.5;
+      const rv = vs.filter(isReversedText), uv = vs.filter(v=>!isReversedText(v));
+      vs = reversed ? (rv.length?rv:vs) : (uv.length?uv:vs);
+    } else { vs = vs.filter(v=>!isReversedText(v)).length ? vs.filter(v=>!isReversedText(v)) : vs; }
+    vidx = vs.map(v=>v.i);
+  }
+  return {cardId:cid, page, variants:vidx, heading, entry, reversed};
+}
+function siteProb(page, cid){ const e=D.daily_entries[page]; if(e && e.length){ return e.filter(x=>x.card===cid).length/e.length; } return 1/78; }
+
+// ---------- persistence (Supabase) ----------
+const SB_URL='https://oscszhalgeifobfcavyx.supabase.co';
+const SB_KEY='sb_publishable_0YX1O8utGDkHRn-L236i9w_ANsB9MYr';
+const sb = (window.supabase && window.supabase.createClient) ? window.supabase.createClient(SB_URL, SB_KEY) : null;
+let user=null;
+function allDraws(){ return state.draws.slice().sort((a,b)=>a.ts<b.ts?1:-1); }
+function saveLocal(){ LS.set('tl.draws', state.draws); LS.set('tl.prefs', state.prefs); LS.set('tl.dirty', [...state.dirty]); LS.set('tl.deleted', [...state.deleted]); }
+const toRow = d=>({ id:d.id, user_id:user.id, ts:new Date(d.ts).toISOString(), question:d.question, card_id:d.cardId, rtype:d.rtype||null, odds:d.odds||null, reversed:!!d.reversed, variants:d.variants||[], heading:d.heading||null, entry:(d.entry==null?null:d.entry), resonance:d.resonance||null, note:d.note||'', check_at:d.checkAt?new Date(d.checkAt).toISOString():null, follow_up:d.followUp||null, source:d.source||'app' });
+const fromRow = r=>({ id:r.id, ts:localIso(new Date(r.ts)), question:r.question, cardId:r.card_id, rtype:r.rtype, odds:r.odds, reversed:!!r.reversed, variants:r.variants||[], heading:r.heading, entry:r.entry, resonance:r.resonance, note:r.note||'', checkAt:r.check_at?localIso(new Date(r.check_at)):null, followUp:r.follow_up||null, source:r.source||'app' });
+function setStatus(html){ $('#status').innerHTML=html; }
+function statusLine(){
+  if(!sb) return setStatus('<b class="off">Storage library failed to load.</b> Entries save on this device only.');
+  if(!user) return setStatus('<b class="off">Not signed in.</b> Entries save on this device only until you sign in above.');
+  const dirty=state.dirty.size+state.deleted.size;
+  setStatus(`<b>${dirty?'Signed in, '+dirty+' change'+(dirty>1?'s':'')+' waiting to sync':'Synced to Supabase'}</b> · ${state.draws.length} ledger entries · ${H.length.toLocaleString()} earlier draws from screenshots · <a href="#" id="signout">sign out</a>`);
+  const so=$('#signout'); if(so) so.onclick=async e=>{ e.preventDefault(); await sb.auth.signOut(); };
+}
+async function pushDirty(){
+  if(!sb||!user) return;
+  for(const id of [...state.deleted]){ const {error}=await sb.from('tarot_draws').delete().eq('id',id); if(!error) state.deleted.delete(id); }
+  const rows=state.draws.filter(d=>state.dirty.has(d.id)).map(toRow);
+  if(rows.length){ const {error}=await sb.from('tarot_draws').upsert(rows); if(!error) rows.forEach(r=>state.dirty.delete(r.id)); else console.warn(error); }
+  saveLocal(); statusLine();
+}
+async function loadRemote(){
+  if(!sb||!user) return;
+  const {data,error}=await sb.from('tarot_draws').select('*').order('ts',{ascending:false});
+  if(error){ toast('Could not load from Supabase: '+error.message); statusLine(); return; }
+  const remote=data.map(fromRow); const rid=new Set(remote.map(d=>d.id));
+  const keep=state.draws.filter(d=>state.dirty.has(d.id) || !rid.has(d.id));
+  const merged=remote.filter(d=>!state.dirty.has(d.id)).concat(keep);
+  // anything local-only that the server has never seen is dirty
+  merged.forEach(d=>{ if(!rid.has(d.id) && !state.deleted.has(d.id)) state.dirty.add(d.id); });
+  state.draws=merged; saveLocal(); await pushDirty(); renderAll();
+}
+async function upsert(d){
+  const i=state.draws.findIndex(x=>x.id===d.id); if(i>=0) state.draws[i]=d; else state.draws.push(d);
+  state.dirty.add(d.id); saveLocal();
+  if(sb&&user){ const {error}=await sb.from('tarot_draws').upsert(toRow(d)); if(error){ toast('Saved here; will sync later ('+error.message+')'); } else state.dirty.delete(d.id); saveLocal(); }
+  statusLine();
+}
+async function removeDraw(id){
+  state.draws=state.draws.filter(x=>x.id!==id); state.dirty.delete(id); state.deleted.add(id); saveLocal();
+  if(sb&&user){ const {error}=await sb.from('tarot_draws').delete().eq('id',id); if(!error) state.deleted.delete(id); saveLocal(); }
+  statusLine();
+}
+// ---------- auth ----------
+function authUi(){
+  const box=$('#auth'); if(!sb){ box.hidden=true; return; }
+  box.hidden=!!user;
+}
+async function initAuth(){
+  if(!sb){ statusLine(); return; }
+  const email=$('#email'), pw=$('#pw'), msg=$('#authmsg');
+  const say=t=>{ msg.textContent=t; };
+  $('#signin').onclick=async()=>{ say('Signing in…'); const {error}=await sb.auth.signInWithPassword({email:email.value.trim(), password:pw.value}); say(error?error.message:''); };
+  $('#signup').onclick=async()=>{ if(!email.value.trim()||pw.value.length<6){ say('Email plus a password of at least 6 characters.'); return; } say('Creating account…'); const {data,error}=await sb.auth.signUp({email:email.value.trim(), password:pw.value, options:{emailRedirectTo:location.origin+location.pathname}}); if(error) say(error.message); else if(data.session) say(''); else say('Check your email for a confirmation link, then sign in.'); };
+  $('#magic').onclick=async()=>{ if(!email.value.trim()){ say('Enter your email first.'); return; } say('Sending…'); const {error}=await sb.auth.signInWithOtp({email:email.value.trim(), options:{emailRedirectTo:location.origin+location.pathname}}); say(error?error.message:'Link sent. Open it on this device.'); };
+  sb.auth.onAuthStateChange((ev,session)=>{ user=session?session.user:null; authUi(); statusLine(); if(user) loadRemote(); else renderAll(); });
+  const {data}=await sb.auth.getSession(); user=data.session?data.session.user:null; authUi(); statusLine(); if(user) loadRemote();
+}
+
+// ---------- draw screen ----------
+const sel = { res:null };
+function scale(id, key){ const n=$('#'+id); n.innerHTML=''; for(let i=1;i<=5;i++){ n.appendChild(el('button',{type:'button','aria-pressed':String(sel[key]===i), onclick:()=>{ sel[key]=(sel[key]===i?null:i); scale(id,key); }}, String(i))); } }
+function readingSelect(){
+  const s=$('#rtype'); s.innerHTML='';
+  READINGS.forEach(p=>s.appendChild(el('option',{value:p}, LABEL[p]||p)));
+  s.value = state.prefs.rtype; s.onchange=()=>{ state.prefs.rtype=s.value; saveLocal(); oddsUi(); };
+  oddsUi();
+}
+function oddsUi(){
+  const p=state.prefs.rtype, e=D.daily_entries[p];
+  $('#odds').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v===state.prefs.odds)));
+  $('#odds').style.display = e ? '' : 'none';
+  const hasRev = pageHasReversed(p); $('#revwrap').style.display = hasRev?'':'none'; $('#rev').checked = !!state.prefs.rev;
+  const note=$('#oddsnote');
+  if(e){ const dup = {}; e.forEach(x=>dup[x.card]=(dup[x.card]||0)+1); const multi=Object.keys(dup).filter(k=>dup[k]>1);
+    note.textContent = `The site's "${LABEL[p]}" page picks 1 of ${e.length} write-ups, not 1 of 78 cards: ${multi.length} cards have two or three write-ups, so they come up more often. "Site odds" copies that; "Even 78" gives every card the same chance.`;
+  } else note.textContent = `Every card has the same 1-in-78 chance. Text is the site's "${LABEL[p]}" write-up.`;
+}
+$('#odds').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b) return; state.prefs.odds=b.dataset.v; saveLocal(); oddsUi(); });
+$('#rev').addEventListener('change', e=>{ state.prefs.rev=e.target.checked; saveLocal(); });
+
+function drawCount(){
+  const k=dayKey(new Date()); const n=state.draws.filter(d=>d.ts.slice(0,10)===k).length;
+  const hist = H.filter(h=>h.t.slice(0,10)===k).length;
+  const last = allDraws()[0]; let ago='';
+  if(last){ const m=Math.round((Date.now()-new Date(last.ts).getTime())/60000); ago = m<60?` \u00b7 last draw ${m} min ago`:m<1440?` \u00b7 last draw ${Math.round(m/60)} h ago`:''; }
+  const q=queueDraws(); const over=q.filter(d=>d.checkAt&&new Date(d.checkAt).getTime()<Date.now()).length;
+  $('#drawcount').textContent = ((n+hist)?`${n+hist} draw${n+hist===1?'':'s'} today${ago}`:'No draws yet today') + (q.length?` \u00b7 ${q.length} waiting for a verdict${over?` (${over} due)`:''}`:'');
+}
+$('#drawbtn').addEventListener('click', ()=>{
+  const q=$('#q').value.trim();
+  if(!q){ $('#q').focus(); toast('Write the question first. That is the whole point.'); return; }
+  const r = pickReading(state.prefs.rtype, state.prefs.odds, state.prefs.rev);
+  const now=new Date();
+  state.pending = { id:uid(), ts:localIso(now), question:q, rtype:r.page, odds:D.daily_entries[r.page]?state.prefs.odds:'even', cardId:r.cardId, reversed:r.reversed, variants:r.variants, heading:r.heading, entry:r.entry, resonance:null, note:'', checkAt:null, followUp:null, source:'app' };
+  sel.res=null; $('#note').value=''; checkBackUI($('#checkback'), state.pending);
+  renderReveal(state.pending, $('#reveal'));
+  scale('res','res');
+  $('#revealwrap').hidden=false; $('#drawbtn').disabled=true;
+  $('#reveal').scrollIntoView({behavior:'smooth',block:'start'});
+});
+function readingBlocks(d){
+  const vs = D.variants[d.cardId];
+  const blocks = (d.variants||[]).map(i=>vs[i]).filter(Boolean);
+  return blocks.map(v=>el('div',{}, fl(v)?el('div',{class:'fld'},fl(v)):null, el('p',{}, v.text)));
+}
+function renderReveal(d, root){
+  const c=CARD[d.cardId]; root.innerHTML='';
+  const img=el('img',{src:c.img, alt:c.name+(d.reversed?' reversed':''), class:d.reversed?'rev':''});
+  root.appendChild(img);
+  root.appendChild(el('div',{}, el('div',{class:'eyebrow'}, LABEL[d.rtype]||d.rtype), el('h2',{}, d.heading || c.name), d.reversed?el('div',{class:'small muted'},'reversed'):null));
+  const rd=el('div',{class:'reading'}, ...readingBlocks(d));
+  root.appendChild(rd);
+  const others = D.variants[d.cardId].map((v,i)=>({...v,i})).filter(v=>!(d.variants||[]).includes(v.i));
+  const samePage = others.filter(v=>v.pages.includes(d.rtype));
+  if(others.length){
+    const det=el('details',{}, el('summary',{}, `${others.length} other write-ups of ${c.name} on the site${samePage.length?` (${samePage.length} on this same page)`:''}`));
+    const groups={}; others.forEach(v=>v.pages.forEach(p=>{ (groups[p]=groups[p]||[]); if(!groups[p].includes(v)) groups[p].push(v); }));
+    Object.keys(groups).sort((a,b)=>(a===d.rtype?-1:b===d.rtype?1:0)).forEach(p=>{
+      const g=el('div',{class:'alt'}, el('div',{class:'eyebrow'}, LABEL[p]||p));
+      groups[p].forEach(v=>g.appendChild(el('p',{style:'margin-top:6px'}, (fl(v)?fl(v)+': ':'')+v.text)));
+      det.appendChild(g);
+    });
+    root.appendChild(det);
+  }
+  root.appendChild(el('p',{class:'small muted'}, el('a',{href:SITE+c.id, target:'_blank', rel:'noopener'}, 'Card page on dailytarotdraw.com')));
+}
+$('#save').addEventListener('click', async ()=>{
+  const d=state.pending; if(!d) return;
+  d.resonance=sel.res; d.note=$('#note').value.trim();
+  await upsert(d);
+  state.pending=null; resetAsk(); toast(d.checkAt?'Saved. It is in the queue until you give a verdict.':'Saved. It stays in the queue until you give a verdict.'); renderAll();
+});
+$('#discard').addEventListener('click', ()=>{ state.pending=null; resetAsk(); });
+function resetAsk(){ $('#revealwrap').hidden=true; $('#drawbtn').disabled=false; $('#q').value=''; drawCount(); window.scrollTo({top:0,behavior:'smooth'}); }
+
+// ---------- check back ----------
+function presetTime(key){
+  const d=new Date();
+  if(key==='tonight'){ d.setHours(21,0,0,0); if(d.getTime()<Date.now()+60*60000) d.setTime(Date.now()+3*3600000); return d; }
+  if(key==='tomorrow'){ d.setDate(d.getDate()+1); d.setHours(9,0,0,0); return d; }
+  if(key==='3d'){ d.setDate(d.getDate()+3); d.setHours(9,0,0,0); return d; }
+  if(key==='1w'){ d.setDate(d.getDate()+7); d.setHours(9,0,0,0); return d; }
+  if(key==='1m'){ d.setMonth(d.getMonth()+1); d.setHours(9,0,0,0); return d; }
+  return null;
+}
+const PRESETS=[['none','No date'],['tonight','Tonight'],['tomorrow','Tomorrow'],['3d','In 3 days'],['1w','In a week'],['1m','In a month'],['pick','Pick a time']];
+// renders chips into root; holder.checkAt holds the ISO string (local) or null
+function checkBackUI(root, holder){
+  root.innerHTML='';
+  const wrap=el('div',{class:'checkrow'}); const pick=el('input',{type:'datetime-local'}); pick.hidden=true;
+  let mode = holder.checkAt ? 'pick' : 'none';
+  if(holder.checkAt){ const t=new Date(holder.checkAt).getTime(); for(const [k] of PRESETS){ const pt=presetTime(k); if(pt && Math.abs(pt.getTime()-t)<60000){ mode=k; break; } } }
+  const draw=()=>{ wrap.innerHTML=''; PRESETS.forEach(([k,l])=>wrap.appendChild(el('button',{type:'button',class:'chip','aria-pressed':String(mode===k), onclick:()=>{ mode=k; if(k==='none') holder.checkAt=null; else if(k==='pick'){ pick.hidden=false; if(!holder.checkAt){ const t=presetTime('tomorrow'); holder.checkAt=localIso(t); } pick.value=holder.checkAt.slice(0,16); } else holder.checkAt=localIso(presetTime(k)); pick.hidden=(k!=='pick'); draw(); }}, l))); if(mode==='pick'){ pick.hidden=false; if(holder.checkAt) pick.value=holder.checkAt.slice(0,16); } };
+  pick.addEventListener('change',()=>{ if(pick.value) holder.checkAt=pick.value+':00'; });
+  draw(); root.appendChild(wrap); root.appendChild(pick);
+}
+function dueLabel(d){
+  if(!d.checkAt) return el('span',{class:'due muted'},'no check date');
+  const t=new Date(d.checkAt), now=Date.now(); const diff=t.getTime()-now;
+  const when=t.toLocaleString([], {weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+  if(diff<0) return el('span',{class:'due over'},'due '+when);
+  if(diff<86400000) return el('span',{class:'due soon'},'check '+when);
+  return el('span',{class:'due muted'},'check '+when);
+}
+function queueDraws(){
+  const q=state.draws.filter(d=>!(d.followUp&&d.followUp.verdict));
+  const now=Date.now();
+  const rank=d=>{ if(!d.checkAt) return [2, new Date(d.ts).getTime()]; const t=new Date(d.checkAt).getTime(); return t<now?[0,t]:[1,t]; };
+  return q.sort((a,b)=>{ const ra=rank(a), rb=rank(b); return ra[0]-rb[0] || ra[1]-rb[1]; });
+}
+function entryButton(d, extra){
+  const c=CARD[d.cardId];
+  return el('button',{class:'entry', onclick:()=>openSheet(d.id)},
+    el('img',{src:c.img,alt:''}),
+    el('div',{}, el('div',{class:'t'}, c.name+(d.reversed?' (rev)':'')), el('div',{class:'q'}, d.question), el('div',{class:'row small',style:'gap:8px;margin-top:4px'}, dots(d.resonance), verdictPill(d), extra||null)),
+    el('div',{class:'time'}, new Date(d.ts).toLocaleDateString([], {month:'short', day:'numeric'}), el('br'), fmtTime(new Date(d.ts))));
+}
+
+// ---------- log ----------
+function dots(n){ const d=el('span',{class:'dots','aria-label':n?`${n} of 5`:'not rated'}); for(let i=1;i<=5;i++) d.appendChild(el('i',{class:n&&i<=n?'on':''})); return d; }
+function verdictPill(d){ const v=d.followUp&&d.followUp.verdict; if(!v) return el('span',{class:'pill open'},'no verdict yet'); return el('span',{class:'pill '+v}, {true:'held up',partly:'partly',no:'did not',unclear:'can\'t tell'}[v]); }
+function renderLog(){
+  const list=$('#loglist'); list.innerHTML='';
+  const draws=allDraws();
+  const p=$('#pending'); p.innerHTML='';
+  const q=queueDraws();
+  if(q.length){
+    const over=q.filter(d=>d.checkAt&&new Date(d.checkAt).getTime()<Date.now()).length;
+    const box=el('div',{class:'queue'}, el('h3',{}, `Waiting for a verdict \u00b7 ${q.length}${over?` \u00b7 ${over} due`:''}`));
+    q.forEach(d=>box.appendChild(entryButton(d, dueLabel(d))));
+    box.appendChild(el('p',{class:'small muted'},'A draw leaves this queue only when you record whether it held up. Tap one to judge it or move its check date.'));
+    p.appendChild(box); p.appendChild(el('hr'));
+  }
+  if(!draws.length){ list.appendChild(el('div',{class:'panel muted'}, 'Nothing in the ledger yet. Your ',el('b',{},H.length.toLocaleString()),' earlier draws from screenshots are counted in Study, but they have no questions attached, which is why this ledger exists.')); return; }
+  const byDay={}; draws.forEach(d=>{ (byDay[d.ts.slice(0,10)]=byDay[d.ts.slice(0,10)]||[]).push(d); });
+  Object.keys(byDay).sort().reverse().forEach(k=>{
+    const day=el('div',{class:'day'}, el('h3',{}, el('span',{},fmtDay(k)), el('span',{class:'num'}, byDay[k].length+' draws')));
+    byDay[k].forEach(d=>{
+      const c=CARD[d.cardId];
+      day.appendChild(el('button',{class:'entry', onclick:()=>openSheet(d.id)},
+        el('img',{src:c.img,alt:''}),
+        el('div',{}, el('div',{class:'t'}, c.name+(d.reversed?' (rev)':'')), el('div',{class:'q'}, d.question), el('div',{class:'row small',style:'gap:8px;margin-top:4px'}, dots(d.resonance), verdictPill(d))),
+        el('div',{class:'time'}, fmtTime(new Date(d.ts)))));
+    });
+    list.appendChild(day);
+  });
+}
+function openSheet(id){
+  const d=state.draws.find(x=>x.id===id); if(!d) return;
+  const c=CARD[d.cardId]; const root=$('#sheetroot'); root.innerHTML='';
+  const local = {res:d.resonance, verdict:d.followUp?d.followUp.verdict:null};
+  const bg=el('div',{class:'sheet-bg', onclick:e=>{ if(e.target===bg) close(); }});
+  const sh=el('div',{class:'sheet', role:'dialog','aria-label':'Draw details'});
+  sh.appendChild(el('div',{class:'grab'}));
+  sh.appendChild(el('div',{class:'row',style:'justify-content:space-between'}, el('div',{}, el('div',{class:'eyebrow'}, new Date(d.ts).toLocaleString([], {weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})), el('h2',{}, c.name+(d.reversed?' reversed':''))), el('img',{src:c.img,alt:'',style:'width:56px;border-radius:6px;border:1px solid var(--line)'})));
+  sh.appendChild(el('div',{}, el('div',{class:'eyebrow'},'Question'), el('p',{style:'font-size:18px'}, d.question)));
+  const rd=el('details',{}, el('summary',{}, 'Reading shown ('+(LABEL[d.rtype]||d.rtype)+')'), el('div',{class:'reading',style:'margin-top:10px'}, el('h3',{}, d.heading||c.name), ...readingBlocks(d))); sh.appendChild(rd);
+  const scaleIn=(key, labels)=>{ const wrap=el('div',{class:'scale'}); const draw=()=>{ wrap.innerHTML=''; for(let i=1;i<=5;i++) wrap.appendChild(el('button',{type:'button','aria-pressed':String(local[key]===i), onclick:()=>{ local[key]=(local[key]===i?null:i); draw(); }}, String(i))); }; draw(); return el('div',{}, wrap, el('div',{class:'scale-ends'}, el('span',{},labels[0]), el('span',{},labels[1]))); };
+  sh.appendChild(el('div',{class:'field'}, el('label',{}, 'Did it land?'), scaleIn('res',['nothing','dead on'])));
+  const note=el('textarea',{placeholder:'How it landed at the time'}); note.value=d.note||''; sh.appendChild(el('div',{class:'field'}, el('label',{},'Note'), note));
+  sh.appendChild(el('hr'));
+  const cb=el('div',{class:'field'}, el('label',{},'Check back on this')); const cbroot=el('div'); cb.appendChild(cbroot); const holder={checkAt:d.checkAt||null}; checkBackUI(cbroot, holder); sh.appendChild(cb);
+  sh.appendChild(el('h3',{},'Looking back: did it hold up?'));
+  const vwrap=el('div',{class:'chips'}); const V=[['true','Held up'],['partly','Partly'],['no','Did not'],['unclear','Can\'t tell']];
+  const drawV=()=>{ vwrap.innerHTML=''; V.forEach(([k,l])=>vwrap.appendChild(el('button',{type:'button',class:'chip','aria-pressed':String(local.verdict===k), onclick:()=>{ local.verdict=(local.verdict===k?null:k); drawV(); }}, l))); }; drawV(); sh.appendChild(vwrap);
+  const fnote=el('textarea',{placeholder:'What actually happened, and whether the reading changed what you did.'}); fnote.value=d.followUp?d.followUp.note||'':''; sh.appendChild(fnote);
+  if(d.followUp&&d.followUp.at) sh.appendChild(el('p',{class:'small muted'}, 'Verdict recorded '+new Date(d.followUp.at).toLocaleDateString()));
+  sh.appendChild(el('div',{class:'row'},
+    el('button',{class:'btn primary', onclick:async()=>{ d.resonance=local.res; d.note=note.value.trim(); d.checkAt=holder.checkAt; d.followUp = (local.verdict||fnote.value.trim()) ? {verdict:local.verdict, note:fnote.value.trim(), at:(d.followUp&&d.followUp.verdict===local.verdict&&d.followUp.at)||new Date().toISOString()} : null; await upsert(d); close(); toast('Updated'); renderAll(); }}, 'Save'),
+    el('button',{class:'btn ghost', onclick:close}, 'Close'),
+    el('button',{class:'btn ghost danger', style:'margin-left:auto', onclick:async()=>{ if(confirm('Delete this draw from the ledger?')){ await removeDraw(d.id); close(); renderAll(); } }}, 'Delete')));
+  bg.appendChild(sh); root.appendChild(bg);
+  function close(){ root.innerHTML=''; }
+}
+
+// ---------- study ----------
+function merged(){
+  const a = state.draws.map(d=>({ts:new Date(d.ts), cardId:d.cardId, page:d.rtype, odds:d.odds, src:'app', d}));
+  const h = H.map(x=>({ts:new Date(x.t), cardId:x.c, page:x.p, odds:'site', src:'shot', n:x.n}));
+  return a.concat(h).sort((x,y)=>x.ts-y.ts);
+}
+function css(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function barChart(canvas, labels, values, opts={}){
+  const dpr=window.devicePixelRatio||1; const W=canvas.clientWidth||500, Hh=opts.height||150; canvas.width=W*dpr; canvas.height=Hh*dpr; canvas.style.height=Hh+'px';
+  const ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr); ctx.clearRect(0,0,W,Hh);
+  const max=Math.max(1,...values); const padL=28,padB=20,padT=8; const iw=W-padL-6, ih=Hh-padB-padT; const bw=iw/values.length;
+  ctx.font='11px "Source Sans 3", sans-serif'; ctx.fillStyle=css('--muted'); ctx.strokeStyle=css('--line');
+  [0,0.5,1].forEach(f=>{ const y=padT+ih-f*ih; ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(W-6,y); ctx.stroke(); ctx.textAlign='right'; ctx.fillText(String(Math.round(max*f)), padL-4, y+4); });
+  values.forEach((v,i)=>{ const h=v/max*ih; ctx.fillStyle = (opts.color? opts.color(i): css('--accent')); ctx.fillRect(padL+i*bw+bw*0.15, padT+ih-h, bw*0.7, h); });
+  ctx.fillStyle=css('--muted'); ctx.textAlign='center';
+  labels.forEach((l,i)=>{ if(l) ctx.fillText(l, padL+i*bw+bw/2, Hh-6); });
+}
+function mean(a){ return a.length? a.reduce((x,y)=>x+y,0)/a.length : null; }
+function f1(x){ return x==null?'\u2013':(Math.round(x*10)/10).toFixed(1); }
+function renderStudy(){
+  const root=$('#s-study'); root.innerHTML='';
+  const all=merged(); const app=state.draws.slice();
+  const now=new Date(); const todayK=dayKey(now);
+  const byDay={}; all.forEach(x=>{ const k=dayKey(x.ts); byDay[k]=(byDay[k]||0)+1; });
+  const days=Object.keys(byDay).sort();
+  const last7 = [...Array(7)].map((_,i)=>{ const d=new Date(now); d.setDate(d.getDate()-i); return byDay[dayKey(d)]||0; });
+  const prev7 = [...Array(7)].map((_,i)=>{ const d=new Date(now); d.setDate(d.getDate()-7-i); return byDay[dayKey(d)]||0; });
+  // chasing: draws within 60 minutes of the previous draw
+  let chase=0; for(let i=1;i<all.length;i++){ if(all[i].ts-all[i-1].ts < 3600000) chase++; }
+  root.appendChild(el('div',{class:'tiles'},
+    el('div',{class:'tile'}, el('div',{class:'v num'}, String(byDay[todayK]||0)), el('div',{class:'l'},'draws today')),
+    el('div',{class:'tile'}, el('div',{class:'v num'}, f1(mean(last7))), el('div',{class:'l'},'per day, last 7 (prev 7: '+f1(mean(prev7))+')')),
+    el('div',{class:'tile'}, el('div',{class:'v num'}, all.length?Math.round(100*chase/all.length)+'%':'\u2013'), el('div',{class:'l'},'draws within an hour of the last one'))));
+  root.appendChild(el('p',{class:'small muted'}, `${all.length.toLocaleString()} draws total: ${H.length.toLocaleString()} recovered from screenshots (${days[0]||''} onward) plus ${app.length} in this ledger. One screenshot burst of the same card within an hour counts as one draw.`));
+
+  // volume, last 10 weeks by day
+  const N=70; const labels=[], vals=[], isApp=[];
+  for(let i=N-1;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i); const k=dayKey(d); vals.push(byDay[k]||0); labels.push(d.getDay()===1 && (i%7===0||true) ? '' : ''); }
+  const wk=[]; for(let i=N-1;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i); wk.push(d.getDate()===1?d.toLocaleDateString([], {month:'short'}):''); }
+  const c1=el('canvas'); root.appendChild(el('div',{class:'panel'}, el('h3',{},'Draws per day, last 10 weeks'), el('p',{class:'small muted',style:'margin-bottom:8px'},'How much you are reaching for the deck. The peak was August.'), c1));
+  requestAnimationFrame(()=>barChart(c1, wk, vals));
+
+  // time of day
+  const hrs=new Array(24).fill(0); all.forEach(x=>hrs[x.ts.getHours()]++);
+  const c2=el('canvas'); root.appendChild(el('div',{class:'panel'}, el('h3',{},'Time of day'), el('p',{class:'small muted',style:'margin-bottom:8px'},'When the draws happen.'), c2));
+  requestAnimationFrame(()=>barChart(c2, hrs.map((_,h)=>h%6===0?(h===0?'12a':h<12?h+'a':h===12?'12p':(h-12)+'p'):''), hrs, {height:120}));
+
+  // frequency vs expected under the odds actually in play
+  const obs={}, expSite={}; D.cards.forEach(c=>{obs[c.id]=0;expSite[c.id]=0;});
+  all.forEach(x=>{ obs[x.cardId]++; D.cards.forEach(c=>{ expSite[c.id]+= (x.odds==='site' && D.daily_entries[x.page]) ? siteProb(x.page,c.id) : 1/78; }); });
+  const rows=D.cards.map(c=>({c, o:obs[c.id], e:expSite[c.id]})).sort((a,b)=>b.o-a.o);
+  const top=rows.slice(0,12), maxO=top[0]?top[0].o:1;
+  const tbl=el('table',{}, el('thead',{}, el('tr',{}, el('th',{},'Card'), el('th',{class:'r'},'Drawn'), el('th',{class:'r'},'Expected'), el('th',{class:'r'},'Ratio'))));
+  const tb=el('tbody'); top.forEach(r=>tb.appendChild(el('tr',{}, el('td',{}, r.c.name, el('div',{class:'bar',style:'margin-top:4px'}, el('i',{style:'width:'+(100*r.o/maxO)+'%'}))), el('td',{class:'r num'}, String(r.o)), el('td',{class:'r num'}, f1(r.e)), el('td',{class:'r num'}, r.e?(r.o/r.e).toFixed(2)+'\u00d7':'\u2013'))));
+  tbl.appendChild(tb);
+  root.appendChild(el('div',{class:'panel'}, el('h3',{},'Most drawn vs. what chance predicts'), el('p',{class:'small muted',style:'margin-bottom:8px'},'"Expected" uses the odds of the page you actually drew from: the site\'s daily draw favours cards with two or three write-ups. With 78 cards, a couple at 1.5\u00d7 or higher is normal noise.'), el('div',{class:'tablewrap'}, tbl)));
+
+  // landing and verdicts (app only)
+  const rated=app.filter(d=>d.resonance);
+  const withV=app.filter(d=>d.followUp&&d.followUp.verdict); const vc={}; withV.forEach(d=>vc[d.followUp.verdict]=(vc[d.followUp.verdict]||0)+1);
+  const resByV={}; withV.forEach(d=>{ if(d.resonance){ (resByV[d.followUp.verdict]=resByV[d.followUp.verdict]||[]).push(d.resonance); } });
+  const p=el('div',{class:'panel stack'}, el('h3',{},'Is anything actually there?'));
+  p.appendChild(el('div',{class:'tiles two'},
+    el('div',{class:'tile'}, el('div',{class:'v num'}, f1(mean(rated.map(d=>d.resonance)))), el('div',{class:'l'},'avg "does it land" (n='+rated.length+')')),
+    el('div',{class:'tile'}, el('div',{class:'v num'}, withV.length?Math.round(100*((vc.true||0)+0.5*(vc.partly||0))/withV.length)+'%':'\u2013'), el('div',{class:'l'},'held up, partly = half (n='+withV.length+')'))));
+  if(withV.length){
+    const t=el('table',{}, el('thead',{}, el('tr',{}, el('th',{},'Verdict'), el('th',{class:'r'},'Count'), el('th',{class:'r'},'Avg landing at the time'))));
+    const b=el('tbody'); [['true','Held up'],['partly','Partly'],['no','Did not'],['unclear','Can\'t tell']].forEach(([k,l])=>{ if(vc[k]) b.appendChild(el('tr',{}, el('td',{},l), el('td',{class:'r num'},String(vc[k])), el('td',{class:'r num'}, f1(mean(resByV[k]||[]))))); }); t.appendChild(b);
+    p.appendChild(el('div',{class:'tablewrap'},t));
+    p.appendChild(el('p',{class:'small muted'},'The test that matters: do the readings that felt "dead on" at the time hold up more often than the ones that felt like nothing? If the last column is flat, the feeling of accuracy is not tracking accuracy.'));
+  } else p.appendChild(el('p',{class:'small muted'},'Verdicts appear here once you go back to logged draws and say whether they held up. Give it a couple of weeks.'));
+  root.appendChild(p);
+  // export
+  const ex=el('div',{class:'panel stack'}, el('h3',{},'Export'), el('p',{class:'small muted'},'Everything in the ledger as JSON, for analysis outside the app.'));
+  ex.appendChild(el('div',{class:'row'}, el('button',{class:'btn', onclick:exportJson},'Download ledger.json'), el('button',{class:'btn ghost', onclick:()=>{ const ta=el('textarea',{style:'min-height:160px;font-size:12px'}); ta.value=JSON.stringify({draws:state.draws},null,1); ex.appendChild(ta); ta.select(); }},'Show as text')));
+  root.appendChild(ex);
+}
+function exportJson(){
+  const data=JSON.stringify({exported:new Date().toISOString(), draws:state.draws, screenshotDraws:H},null,1);
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([data],{type:'application/json'})); a.download='tarot-ledger.json'; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000);
+}
+
+// ---------- deck ----------
+function renderDeck(){
+  const home=$('#deckhome'); home.innerHTML=''; $('#cardpage').hidden=true; home.hidden=false;
+  const all=merged(); const cnt={}; all.forEach(x=>cnt[x.cardId]=(cnt[x.cardId]||0)+1);
+  const g=el('div',{class:'grid'});
+  D.cards.forEach(c=>g.appendChild(el('button',{onclick:()=>renderCard(c.id)}, el('img',{src:c.img,alt:'',loading:'lazy'}), el('b',{},c.name), el('span',{class:'num'}, (cnt[c.id]||0)+'\u00d7'))));
+  home.appendChild(el('p',{class:'small muted',style:'margin-bottom:10px'}, 'All 78 Rider-Waite-Smith cards with every write-up the site uses for them. Counts include the screenshot history.'));
+  home.appendChild(g);
+}
+function renderCard(cid){
+  const c=CARD[cid]; const home=$('#deckhome'); const pg=$('#cardpage'); home.hidden=true; pg.hidden=false; pg.innerHTML='';
+  const all=merged().filter(x=>x.cardId===cid); const appD=state.draws.filter(d=>d.cardId===cid);
+  pg.appendChild(el('button',{class:'btn ghost', onclick:renderDeck}, '\u2190 All cards'));
+  pg.appendChild(el('div',{class:'reveal panel',style:'margin-top:12px'}, el('img',{src:c.img,alt:c.name}), el('h2',{}, c.name), el('p',{class:'small muted'}, (c.arcana==='major'?'Major Arcana '+c.roman:c.suit)+` \u00b7 drawn ${all.length}\u00d7 (${appD.length} in the ledger)`+(appD.filter(d=>d.resonance).length?` \u00b7 avg landing ${f1(mean(appD.filter(d=>d.resonance).map(d=>d.resonance)))}`:''))));
+  const groups={}; D.variants[cid].forEach(v=>v.pages.forEach(p=>{ (groups[p]=groups[p]||[]); if(!groups[p].includes(v)) groups[p].push(v); }));
+  const order=Object.keys(groups).sort((a,b)=>READINGS.indexOf(a)-READINGS.indexOf(b));
+  const wrap=el('div',{class:'panel stack'}, el('h3',{}, D.variants[cid].length+' write-ups on the site'));
+  order.forEach(p=>{ const d=el('details',{}, el('summary',{}, (LABEL[p]||p)+' ('+groups[p].length+')')); groups[p].forEach(v=>d.appendChild(el('div',{class:'alt'}, fl(v)?el('div',{class:'eyebrow'},fl(v)):null, el('p',{style:'white-space:pre-line'}, v.text)))); wrap.appendChild(d); });
+  pg.appendChild(wrap);
+  if(appD.length){ const l=el('div',{class:'stack'}, el('h3',{},'In the ledger')); appD.sort((a,b)=>a.ts<b.ts?1:-1).forEach(d=>l.appendChild(el('button',{class:'entry', onclick:()=>openSheet(d.id)}, el('div',{class:'small muted'}, new Date(d.ts).toLocaleDateString()), el('div',{}, el('div',{class:'q'}, d.question), el('div',{class:'row small',style:'gap:8px;margin-top:4px'}, dots(d.resonance), verdictPill(d))), el('div')))); pg.appendChild(l); }
+  pg.appendChild(el('p',{class:'small'}, el('a',{href:SITE+c.id,target:'_blank',rel:'noopener'}, 'Full card page on dailytarotdraw.com')));
+  window.scrollTo({top:0});
+}
+
+// ---------- tabs ----------
+function showTab(t){ state.tab=t; document.querySelectorAll('.tabbar button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===t))); ['draw','log','study','deck'].forEach(k=>$('#s-'+k).hidden=(k!==t)); if(t==='log') renderLog(); if(t==='study') renderStudy(); if(t==='deck') renderDeck(); window.scrollTo({top:0}); }
+document.querySelector('.tabbar').addEventListener('click', e=>{ const b=e.target.closest('button'); if(b) showTab(b.dataset.tab); });
+function renderAll(){ drawCount(); if(state.tab==='log') renderLog(); if(state.tab==='study') renderStudy(); if(state.tab==='deck' && $('#cardpage').hidden) renderDeck(); }
+
+// ---------- boot ----------
+$('#today').textContent = new Date().toLocaleDateString([], {weekday:'long', month:'long', day:'numeric'});
+readingSelect(); drawCount();
+initAuth();
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+})();
+</script>
+</body>
+</html>
