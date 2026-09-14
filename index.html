@@ -112,6 +112,11 @@ summary{cursor:pointer;color:var(--violet);font-weight:600;font-size:15px}
 .kw span{border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:13px;color:var(--text);background:var(--surface-2)}
 .sect p{white-space:pre-line}
 .src{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-top:10px}
+.ynmini{font-size:12px;font-weight:700;letter-spacing:.04em;margin-left:7px;text-transform:uppercase}
+.ynmini.yes{color:var(--good)}.ynmini.no{color:var(--warn)}.ynmini.maybe{color:var(--accent)}
+.ynline{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.ynline .v{font-family:'Cormorant Garamond',Georgia,serif;font-size:26px;font-weight:600;line-height:1}
+.ynline .v.yes{color:var(--good)}.ynline .v.no{color:var(--warn)}.ynline .v.maybe{color:var(--accent)}
 .sect .src:first-child{margin-top:0}
 /* log */
 .day{display:flex;flex-direction:column;gap:8px}
@@ -509,11 +514,26 @@ function queueDraws(){
   const rank=d=>{ if(!d.checkAt) return [2, new Date(d.ts).getTime()]; const t=new Date(d.checkAt).getTime(); return t<now?[0,t]:[1,t]; };
   return q.sort((a,b)=>{ const ra=rank(a), rb=rank(b); return ra[0]-rb[0] || ra[1]-rb[1]; });
 }
+// What the site's yes/no pages answer for this card. Separate from the user's own
+// later verdict on whether the reading held up.
+function cardVerdict(cardId){
+  const answers = (D.variants[cardId]||[])
+    .filter(v => (v.field||'').toLowerCase() === 'answer')
+    .map(v => v.text.trim().toUpperCase())
+    .filter(Boolean);
+  const uniq = [...new Set(answers)];
+  if(!uniq.length) return null;
+  if(uniq.length > 1) return {label:'Mixed', cls:'maybe', mixed:true};
+  const a = uniq[0];
+  return {label: a.charAt(0) + a.slice(1).toLowerCase(),
+          cls: a === 'YES' ? 'yes' : a === 'NO' ? 'no' : 'maybe',
+          mixed:false};
+}
 function entryButton(d, extra){
   const c=CARD[d.cardId];
   return el('button',{class:'entry', onclick:()=>openSheet(d.id)},
     el('img',{src:c.img,alt:''}),
-    el('div',{}, el('div',{class:'t'}, c.name+(d.reversed?' (rev)':'')), el('div',{class:'q'}, d.question), el('div',{class:'row small',style:'gap:8px;margin-top:4px'}, dots(d.resonance), verdictPill(d), extra||null)),
+    el('div',{}, el('div',{class:'t'}, c.name+(d.reversed?' (rev)':''), (()=>{ const y=cardVerdict(d.cardId); return y?el('span',{class:'ynmini '+y.cls, title:'The site\u2019s yes/no answer for this card'}, y.label):null; })()), el('div',{class:'q'}, d.question), el('div',{class:'row small',style:'gap:8px;margin-top:4px'}, dots(d.resonance), verdictPill(d), extra||null)),
     el('div',{class:'time'}, new Date(d.ts).toLocaleDateString([], {month:'short', day:'numeric'}), el('br'), fmtTime(new Date(d.ts))));
 }
 
@@ -554,6 +574,11 @@ function openSheet(id){
   const sh=el('div',{class:'sheet', role:'dialog','aria-label':'Draw details'});
   sh.appendChild(el('div',{class:'grab'}));
   sh.appendChild(el('div',{class:'row',style:'justify-content:space-between'}, el('div',{}, el('div',{class:'eyebrow'}, new Date(d.ts).toLocaleString([], {weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})), el('h2',{}, c.name+(d.reversed?' reversed':''))), el('img',{src:c.img,alt:'',style:'width:56px;border-radius:6px;border:1px solid var(--line)'})));
+  const yn = cardVerdict(d.cardId);
+  if(yn) sh.appendChild(el('div',{}, el('div',{class:'eyebrow'},'Yes or no for this card'),
+    el('div',{class:'ynline'}, el('span',{class:'v '+yn.cls}, yn.label),
+      el('span',{class:'small muted'}, yn.mixed ? 'the site answers differently on different pages' : 'on the site\u2019s yes/no pages')),
+    el('button',{class:'btn ghost', style:'margin-top:10px', onclick:()=>{ close(); showTab('deck'); renderCard(d.cardId); }}, 'More about ' + c.name)));
   sh.appendChild(el('div',{}, el('div',{class:'eyebrow'},'Question'), el('p',{style:'font-size:18px'}, d.question)));
   const rd=el('details',{}, el('summary',{}, 'The reading you were given ('+(LABEL[d.rtype]||d.rtype)+')'), el('div',{class:'reading',style:'margin-top:10px'}, el('h3',{}, d.heading||c.name), ...readingBlocks(d))); sh.appendChild(rd);
   const scaleIn=(key, labels)=>{ const wrap=el('div',{class:'scale'}); const draw=()=>{ wrap.innerHTML=''; for(let i=1;i<=5;i++) wrap.appendChild(el('button',{type:'button','aria-pressed':String(local[key]===i), onclick:()=>{ local[key]=(local[key]===i?null:i); draw(); }}, String(i))); }; draw(); return el('div',{}, wrap, el('div',{class:'scale-ends'}, el('span',{},labels[0]), el('span',{},labels[1]))); };
