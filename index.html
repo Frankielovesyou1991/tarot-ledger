@@ -740,17 +740,16 @@ function cardDetail(cid, root){
     root.appendChild(box);
   });
 
-  // everything that did not fit a section, grouped by the page it came from
+  // Everything that did not fit a section. One passage often appears on many pages,
+  // so list each passage once with its sources rather than repeating it per page.
   if(B.other.length){
-    const groups = {};
-    B.other.forEach(v => v.pages.forEach(pg => { (groups[pg] = groups[pg] || []); if(!groups[pg].includes(v)) groups[pg].push(v); }));
-    const wrap = el('div',{class:'panel stack'}, el('h3',{}, 'Other write-ups (' + B.other.length + ')'));
-    Object.keys(groups).sort((a,b) => READINGS.indexOf(a) - READINGS.indexOf(b)).forEach(pg => {
-      const dt = el('details',{}, el('summary',{}, (LABEL[pg] || pg) + ' (' + groups[pg].length + ')'));
-      groups[pg].forEach(v => dt.appendChild(el('div',{class:'alt'}, fl(v) ? el('div',{class:'eyebrow'}, fl(v)) : null, el('p',{style:'white-space:pre-line'}, v.text))));
-      wrap.appendChild(dt);
-    });
-    root.appendChild(wrap);
+    const dt = el('details',{}, el('summary',{}, 'Other write-ups (' + B.other.length + ')'));
+    B.other.slice()
+      .sort((a,b) => READINGS.indexOf(a.pages[0]) - READINGS.indexOf(b.pages[0]))
+      .forEach(v => dt.appendChild(el('div',{class:'alt'},
+        el('div',{class:'src'}, sourceOf(v)),
+        el('p',{style:'white-space:pre-line'}, v.text))));
+    root.appendChild(el('div',{class:'panel stack'}, dt));
   }
 }
 function renderCard(cid){
