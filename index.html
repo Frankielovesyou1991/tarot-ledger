@@ -413,8 +413,17 @@ function renderReveal(d, root){
   const c=CARD[d.cardId]; root.innerHTML='';
   const img=el('img',{src:c.img, alt:c.name+(d.reversed?' reversed':''), class:d.reversed?'rev':''});
   root.appendChild(img);
-  root.appendChild(el('div',{}, el('div',{class:'eyebrow'}, LABEL[d.rtype]||d.rtype), el('h2',{}, d.heading || c.name), d.reversed?el('div',{class:'small muted'},'reversed'):null));
-  const rd=el('div',{class:'reading'}, ...readingBlocks(d));
+  // some site entries run the card name and the first sentence together on one line;
+  // keep the name as the heading and move the rest into the reading so nothing is lost
+  let head = d.heading || c.name, lead = null;
+  if(head.length > 42){
+    const i = head.toLowerCase().indexOf(c.name.toLowerCase());
+    lead = (i >= 0 ? head.slice(i + c.name.length) : head).replace(/^[\s:.\u2013\u2014-]+/,'').trim();
+    head = c.name;
+    if(lead && i >= 0 && !/^[A-Z0-9"\u2018\u201c]/.test(lead)) lead = c.name + ' ' + lead;
+  }
+  root.appendChild(el('div',{}, el('div',{class:'eyebrow'}, LABEL[d.rtype]||d.rtype), el('h2',{}, head), d.reversed?el('div',{class:'small muted'},'reversed'):null));
+  const rd=el('div',{class:'reading'}, lead?el('div',{}, el('p',{}, lead)):null, ...readingBlocks(d));
   root.appendChild(rd);
   const others = D.variants[d.cardId].map((v,i)=>({...v,i})).filter(v=>!(d.variants||[]).includes(v.i));
   const samePage = others.filter(v=>v.pages.includes(d.rtype));
