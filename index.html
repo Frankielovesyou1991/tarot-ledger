@@ -252,7 +252,7 @@ const FIELD = {text:'',desc:'Meaning',challenge:'Challenge',action:'Action',key:
 const fl = v=>(v.field in FIELD)?fl(v):v.field;
 const state = { draws:[], prefs:{rtype:'daily__tarot', odds:'even', rev:false}, pending:null, tab:'draw', cardOpen:null, dirty:new Set(), deleted:new Set() };
 const LS = { get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } }, set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} } };
-state.draws = LS.get('tl.draws',[]); Object.assign(state.prefs, LS.get('tl.prefs',{})); state.dirty=new Set(LS.get('tl.dirty',[])); state.deleted=new Set(LS.get('tl.deleted',[]));
+state.draws = LS.get('tl.draws',[]); { const sp=LS.get('tl.prefs',{}); if(sp.v!==2) delete sp.odds; Object.assign(state.prefs, sp); state.prefs.v=2; } state.dirty=new Set(LS.get('tl.dirty',[])); state.deleted=new Set(LS.get('tl.deleted',[]));
 
 const $ = s=>document.querySelector(s);
 const el = (tag, attrs, ...kids)=>{ const n=document.createElement(tag); if(attrs) for(const k in attrs){ if(k==='class') n.className=attrs[k]; else if(k.startsWith('on')) n.addEventListener(k.slice(2),attrs[k]); else if(k==='html') n.innerHTML=attrs[k]; else n.setAttribute(k,attrs[k]); } kids.flat().forEach(k=>{ if(k==null) return; n.appendChild(typeof k==='string'?document.createTextNode(k):k); }); return n; };
