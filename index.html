@@ -88,6 +88,7 @@ select{appearance:none;-webkit-appearance:none;background-image:linear-gradient(
   border:6px solid var(--gold);box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center;color:var(--gold);font-family:'Cormorant Garamond',serif;font-size:26px;letter-spacing:.14em;text-transform:uppercase;transition:transform .15s}
 .cardback:active{transform:scale(.98)}
 .cardback:disabled{opacity:.35}
+.cardback.dim{opacity:.5}
 .reveal{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center}
 .reveal img{width:min(70vw,260px);aspect-ratio:9/16;object-fit:cover;border-radius:12px;box-shadow:var(--shadow);border:1px solid var(--line);background:var(--surface-2)}
 .reveal img.rev{transform:rotate(180deg)}
@@ -250,7 +251,7 @@ const READINGS = [
 const FIELD = {text:'',desc:'Meaning',challenge:'Challenge',action:'Action',key:'Keyword',upright:'Upright',reversed:'Reversed',answer:'Answer',meaning:'Meaning',meaning2:'Guidance',message:'Message',keywords:'Keywords',astrology:'Astrology',mind:'Mind',body:'Body',spirit:'Spirit',description:'',phrase:'Phrase',rw_meaning:'Meaning',rw_addendum:'',rw_love:'Love',name:''};
 
 // ---------- state ----------
-const fl = v=>(v.field in FIELD)?fl(v):v.field;
+const fl = v=>(v.field in FIELD)?FIELD[v.field]:v.field;
 const state = { draws:[], prefs:{rtype:'daily__tarot', odds:'even', rev:false}, pending:null, tab:'draw', cardOpen:null, dirty:new Set(), deleted:new Set() };
 const LS = { get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } }, set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} } };
 state.draws = LS.get('tl.draws',[]); { const sp=LS.get('tl.prefs',{}); if(sp.v!==2) delete sp.odds; Object.assign(state.prefs, sp); state.prefs.v=2; } state.dirty=new Set(LS.get('tl.dirty',[])); state.deleted=new Set(LS.get('tl.deleted',[]));
@@ -381,6 +382,8 @@ function oddsUi(){
 $('#odds').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b) return; state.prefs.odds=b.dataset.v; saveLocal(); oddsUi(); });
 $('#rev').addEventListener('change', e=>{ state.prefs.rev=e.target.checked; saveLocal(); });
 
+function syncDrawBtn(){ $('#drawbtn').classList.toggle('dim', !$('#q').value.trim()); }
+$('#q').addEventListener('input', syncDrawBtn);
 function drawCount(){
   const k=dayKey(new Date()); const n=state.draws.filter(d=>d.ts.slice(0,10)===k).length;
   const hist = H.filter(h=>h.t.slice(0,10)===k).length;
@@ -391,7 +394,7 @@ function drawCount(){
 }
 $('#drawbtn').addEventListener('click', ()=>{
   const q=$('#q').value.trim();
-  if(!q){ $('#q').focus(); toast('Write the question first. That is the whole point.'); return; }
+  if(!q){ const t=$('#q'); t.scrollIntoView({behavior:'smooth',block:'center'}); t.focus(); toast('Write your question first.'); return; }
   const r = pickReading(state.prefs.rtype, state.prefs.odds, state.prefs.rev);
   const now=new Date();
   state.pending = { id:uid(), ts:localIso(now), question:q, rtype:r.page, odds:D.daily_entries[r.page]?state.prefs.odds:'even', cardId:r.cardId, reversed:r.reversed, variants:r.variants, heading:r.heading, entry:r.entry, resonance:null, note:'', checkAt:null, followUp:null, source:'app' };
@@ -434,7 +437,7 @@ $('#save').addEventListener('click', async ()=>{
   state.pending=null; resetAsk(); toast(d.checkAt?'Saved. It is in the queue until you give a verdict.':'Saved. It stays in the queue until you give a verdict.'); renderAll();
 });
 $('#discard').addEventListener('click', ()=>{ state.pending=null; resetAsk(); });
-function resetAsk(){ $('#revealwrap').hidden=true; $('#drawbtn').disabled=false; $('#q').value=''; drawCount(); window.scrollTo({top:0,behavior:'smooth'}); }
+function resetAsk(){ $('#revealwrap').hidden=true; $('#drawbtn').disabled=false; $('#q').value=''; syncDrawBtn(); drawCount(); window.scrollTo({top:0,behavior:'smooth'}); }
 
 // ---------- check back ----------
 function presetTime(key){
@@ -649,7 +652,7 @@ function renderAll(){ drawCount(); if(state.tab==='log') renderLog(); if(state.t
 
 // ---------- boot ----------
 $('#today').textContent = new Date().toLocaleDateString([], {weekday:'long', month:'long', day:'numeric'});
-readingSelect(); drawCount();
+readingSelect(); drawCount(); syncDrawBtn();
 initAuth();
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 })();
