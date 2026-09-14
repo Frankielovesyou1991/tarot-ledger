@@ -180,7 +180,7 @@ hr{border:0;border-top:1px solid var(--line);margin:4px 0}
       <div class="field"><label for="rtype">Reading</label>
         <select id="rtype"></select></div>
       <div class="row" style="justify-content:space-between">
-        <div class="seg" id="odds" role="group" aria-label="Odds"><button data-v="site" aria-pressed="true">Site odds</button><button data-v="even" aria-pressed="false">Even 78</button></div>
+        <div class="seg" id="odds" role="group" aria-label="Odds"><button data-v="even" aria-pressed="true">Even 78</button><button data-v="site" aria-pressed="false">Site odds</button></div>
         <label class="row small" id="revwrap" style="gap:6px"><input type="checkbox" id="rev"> allow reversed</label>
       </div>
       <p class="small muted" id="oddsnote"></p>
@@ -250,7 +250,7 @@ const FIELD = {text:'',desc:'Meaning',challenge:'Challenge',action:'Action',key:
 
 // ---------- state ----------
 const fl = v=>(v.field in FIELD)?fl(v):v.field;
-const state = { draws:[], prefs:{rtype:'daily__tarot', odds:'site', rev:false}, pending:null, tab:'draw', cardOpen:null, dirty:new Set(), deleted:new Set() };
+const state = { draws:[], prefs:{rtype:'daily__tarot', odds:'even', rev:false}, pending:null, tab:'draw', cardOpen:null, dirty:new Set(), deleted:new Set() };
 const LS = { get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } }, set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} } };
 state.draws = LS.get('tl.draws',[]); Object.assign(state.prefs, LS.get('tl.prefs',{})); state.dirty=new Set(LS.get('tl.dirty',[])); state.deleted=new Set(LS.get('tl.deleted',[]));
 
