@@ -131,6 +131,7 @@ summary{cursor:pointer;color:var(--violet);font-weight:600;font-size:15px}
 .prompt{border:1px solid var(--accent);border-radius:14px;padding:14px 16px;background:var(--surface);display:flex;flex-direction:column;gap:10px}
 .prompt .hd{font-family:'Cormorant Garamond',Georgia,serif;font-size:21px;font-weight:600}
 .emptyline{color:var(--muted);font-size:15px;padding:2px 0}
+.clamp2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .sect .src:first-child{margin-top:0}
 /* log */
 .day{display:flex;flex-direction:column;gap:8px}
@@ -586,10 +587,9 @@ function syncReview(){
   if(!due.length){ box.hidden = true; return; }
   box.hidden = false;
   const oldest = due[0];
-  const q = oldest.question.length > 72 ? oldest.question.slice(0,72) + '...' : oldest.question;
   box.appendChild(el('div',{class:'prompt'},
     el('div',{class:'hd'}, due.length === 1 ? 'One draw is ready to judge' : due.length + ' draws are ready to judge'),
-    el('p',{class:'small muted'}, 'Oldest: ' + q),
+    el('p',{class:'small muted clamp2'}, oldest.question),
     el('div',{class:'row'},
       el('button',{class:'btn primary', onclick:()=>showTab('log')}, 'Review now'),
       el('button',{class:'btn ghost', onclick:()=>openSheet(oldest.id)}, 'Judge that one'))));
@@ -738,28 +738,23 @@ function passageSpread(){
   });
   return {seen, count};
 }
-const STOPWORDS = new Set(('the and for are was you your his her not but can how why who one out get got all any has had did its '
-  + 'will what when does this that with have about they them from into should would could there their make made been being over '
-  + 'than then same just like know want need her him she he it a i is of to in on my me do if or so am be at as it').split(' '));
-// Loose grouping of questions you have asked more than once.
+// Group ONLY exact repeats, compared without case or punctuation. An earlier
+// version matched loosely and merged different questions, which misrepresented
+// what was actually asked. Never infer that two differently worded questions
+// are the same one.
 function repeatGroups(){
-  const tok = q => new Set(q.toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(w => w.length > 2 && !STOPWORDS.has(w)));
-  const groups = [];
-  state.draws.filter(d => d.question && d.question.trim().length > 6).forEach(d => {
-    const t = tok(d.question);
-    if(!t.size) return;
-    const g = groups.find(g => {
-      const inter = [...t].filter(w => g.tokens.has(w)).length;
-      // overlap against the shorter question, so a longer rephrasing of the same
-      // ask still matches; two shared meaningful words minimum
-      const denom = Math.min(t.size, g.tokens.size);
-      return inter >= 2 && denom && inter / denom >= 0.6;
-    });
-    if(g){ g.items.push(d); t.forEach(w => g.tokens.add(w)); }
-    else groups.push({tokens:new Set(t), items:[d]});
+  const norm = q => q.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const by = new Map();
+  state.draws.filter(d => d.question && d.question.trim()).forEach(d => {
+    const k = norm(d.question);
+    if(!k) return;
+    if(!by.has(k)) by.set(k, []);
+    by.get(k).push(d);
   });
-  return groups.filter(g => g.items.length > 1)
-               .sort((a,b) => b.items.length - a.items.length);
+  return [...by.values()]
+    .filter(items => items.length > 1)
+    .map(items => items.slice().sort((x,y) => x.ts < y.ts ? -1 : 1))
+    .sort((x,y) => y.length - x.length);
 }
 function consistencyPanel(){
   const wrap = el('div',{class:'panel stack'}, el('h3',{},'Consistency'));
@@ -810,22 +805,29 @@ function consistencyPanel(){
     wrap.appendChild(el('div',{class:'tablewrap'}, t));
   }
 
-  // asking the same thing twice
+  // asking the exact same thing more than once
   const groups = repeatGroups();
   wrap.appendChild(el('h3',{style:'margin-top:6px'},'Asking the same thing twice'));
   if(!groups.length){
-    wrap.appendChild(el('p',{class:'small muted'},'Nothing yet. When you ask a similar question more than once, this will show which cards came up each time and whether they agreed. That is the cleanest test available here: the same question should not get contradictory answers if the cards are tracking anything real.'));
+    wrap.appendChild(el('p',{class:'small muted'},'Nothing yet. When you ask the exact same question more than once, each time appears here word for word with the card it drew, so you can see whether the answers agreed. Only identical questions are compared; nothing is merged on a guess.'));
   } else {
-    groups.slice(0,6).forEach(g => {
-      const answers = g.items.map(d => { const y = cardVerdict(d.cardId); return y ? y.label : null; }).filter(Boolean);
-      const uniq = [...new Set(answers)];
-      const agreed = uniq.length <= 1;
+    wrap.appendChild(el('p',{class:'small muted'},'Your questions, exactly as you typed them, each time you asked.'));
+    groups.slice(0,8).forEach(items => {
+      const answers = items.map(d => { const y = cardVerdict(d.cardId); return y ? y.label : null; }).filter(Boolean);
+      const agreed = [...new Set(answers)].length <= 1;
       const box = el('div',{class:'alt'},
-        el('div',{class:'src'}, g.items.length + ' times asked'),
-        el('p',{}, g.items[0].question),
-        el('div',{class:'row small',style:'gap:8px;margin-top:6px'},
-          el('span',{class:'pill ' + (agreed ? 'true' : 'no')}, agreed ? 'consistent' : 'contradicted itself'),
-          el('span',{class:'muted'}, g.items.map(d => (CARD[d.cardId]||{}).name).join(', '))));
+        el('div',{class:'src'}, 'Asked ' + items.length + ' times'),
+        el('div',{class:'row small',style:'gap:8px;margin-bottom:2px'},
+          el('span',{class:'pill ' + (agreed ? 'true' : 'no')},
+            agreed ? 'same answer each time' : 'contradicted itself')));
+      items.forEach(d => {
+        const y = cardVerdict(d.cardId);
+        box.appendChild(el('p',{style:'margin-top:9px'}, d.question));
+        box.appendChild(el('div',{class:'row small',style:'gap:8px;margin-top:2px'},
+          el('span',{class:'muted'}, new Date(d.ts).toLocaleDateString([], {month:'short', day:'numeric'})),
+          el('span',{class:'muted'}, (CARD[d.cardId]||{}).name || ''),
+          y ? el('span',{class:'ynmini ' + y.cls}, y.label) : null));
+      });
       wrap.appendChild(box);
     });
   }
