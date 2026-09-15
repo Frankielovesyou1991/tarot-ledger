@@ -750,8 +750,10 @@ function repeatGroups(){
     if(!t.size) return;
     const g = groups.find(g => {
       const inter = [...t].filter(w => g.tokens.has(w)).length;
-      const uni = new Set([...t, ...g.tokens]).size;
-      return uni && inter / uni >= 0.5;
+      // overlap against the shorter question, so a longer rephrasing of the same
+      // ask still matches; two shared meaningful words minimum
+      const denom = Math.min(t.size, g.tokens.size);
+      return inter >= 2 && denom && inter / denom >= 0.6;
     });
     if(g){ g.items.push(d); t.forEach(w => g.tokens.add(w)); }
     else groups.push({tokens:new Set(t), items:[d]});
