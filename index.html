@@ -117,6 +117,20 @@ summary{cursor:pointer;color:var(--violet);font-weight:600;font-size:15px}
 .ynline{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
 .ynline .v{font-family:'Cormorant Garamond',Georgia,serif;font-size:26px;font-weight:600;line-height:1}
 .ynline .v.yes{color:var(--good)}.ynline .v.no{color:var(--warn)}.ynline .v.maybe{color:var(--accent)}
+/* log organisation */
+.secthead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:2px}
+.secthead h3{font-family:'Source Sans 3',sans-serif;font-size:14px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.secthead .n{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.duebox{border:1px solid var(--accent);border-radius:14px;padding:14px;background:var(--surface);display:flex;flex-direction:column;gap:10px}
+.duebox.none{border-color:var(--line)}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.filters button{border:1px solid var(--line);background:var(--surface-2);border-radius:999px;padding:5px 12px;font-size:13px;color:var(--muted);font-weight:600}
+.filters button[aria-pressed=true]{background:var(--text);border-color:var(--text);color:var(--bg)}
+.tabbar button{position:relative}
+.badge{position:absolute;top:4px;left:calc(50% + 7px);min-width:17px;height:17px;border-radius:9px;background:var(--warn);color:#fff;font-size:11px;font-weight:700;line-height:17px;text-align:center;padding:0 4px}
+.prompt{border:1px solid var(--accent);border-radius:14px;padding:14px 16px;background:var(--surface);display:flex;flex-direction:column;gap:10px}
+.prompt .hd{font-family:'Cormorant Garamond',Georgia,serif;font-size:21px;font-weight:600}
+.emptyline{color:var(--muted);font-size:15px;padding:2px 0}
 .sect .src:first-child{margin-top:0}
 /* log */
 .day{display:flex;flex-direction:column;gap:8px}
@@ -190,6 +204,7 @@ hr{border:0;border-top:1px solid var(--line);margin:4px 0}
 
   <!-- DRAW -->
   <section id="s-draw" class="stack">
+    <div id="reviewprompt" hidden></div>
     <div class="panel stack" id="ask">
       <div class="field"><label for="q">The question</label>
         <textarea id="q" placeholder="What are you actually asking? Be specific enough that you could later say whether the answer held up."></textarea></div>
@@ -241,7 +256,7 @@ hr{border:0;border-top:1px solid var(--line);margin:4px 0}
 
 <nav class="tabbar"><div>
   <button data-tab="draw" aria-selected="true"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M12 8v8M8 12h8"/></svg>Draw</button>
-  <button data-tab="log" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>Log</button>
+  <button data-tab="log" aria-selected="false"><span class="badge" id="logbadge" hidden></span><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>Log</button>
   <button data-tab="study" aria-selected="false"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>Study</button>
   <button data-tab="deck" aria-selected="false"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="10" height="15" rx="1.5"/><path d="M13 5l6 2-4 14-6-2"/></svg>Deck</button>
 </div></nav>
@@ -266,7 +281,7 @@ const FIELD = {text:'',desc:'Meaning',challenge:'Challenge',action:'Action',key:
 
 // ---------- state ----------
 const fl = v=>(v.field in FIELD)?FIELD[v.field]:v.field;
-const state = { draws:[], prefs:{rtype:'daily__tarot', odds:'even', rev:false}, pending:null, tab:'draw', cardOpen:null, dirty:new Set(), deleted:new Set() };
+const state = { draws:[], prefs:{rtype:'daily__tarot', odds:'even', rev:false}, pending:null, tab:'draw', cardOpen:null, logFilter:'all', dirty:new Set(), deleted:new Set() };
 const LS = { get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } }, set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} } };
 state.draws = LS.get('tl.draws',[]); { const sp=LS.get('tl.prefs',{}); if(sp.v!==2) delete sp.odds; Object.assign(state.prefs, sp); state.prefs.v=2; } state.dirty=new Set(LS.get('tl.dirty',[])); state.deleted=new Set(LS.get('tl.deleted',[]));
 
@@ -540,29 +555,109 @@ function entryButton(d, extra){
 // ---------- log ----------
 function dots(n){ const d=el('span',{class:'dots','aria-label':n?`${n} of 5`:'not rated'}); for(let i=1;i<=5;i++) d.appendChild(el('i',{class:n&&i<=n?'on':''})); return d; }
 function verdictPill(d){ const v=d.followUp&&d.followUp.verdict; if(!v) return el('span',{class:'pill open'},'no verdict yet'); return el('span',{class:'pill '+v}, {true:'held up',partly:'partly',no:'did not',unclear:'can\'t tell'}[v]); }
+const REVIEW_GRACE_DAYS = 3;
+// Where a draw sits in the review cycle. 'due' means it is asking for a verdict now.
+function reviewState(d){
+  if(d.followUp && d.followUp.verdict) return 'done';
+  const now = Date.now();
+  if(d.checkAt) return new Date(d.checkAt).getTime() <= now ? 'due' : 'scheduled';
+  return (now - new Date(d.ts).getTime()) > REVIEW_GRACE_DAYS * 86400000 ? 'due' : 'waiting';
+}
+function dueDraws(){
+  return state.draws.filter(d => reviewState(d) === 'due')
+    .sort((x,y) => new Date(x.checkAt || x.ts) - new Date(y.checkAt || y.ts));
+}
+function scheduledDraws(){
+  return state.draws.filter(d => reviewState(d) === 'scheduled')
+    .sort((x,y) => new Date(x.checkAt) - new Date(y.checkAt));
+}
+function sectionHead(title, count){
+  return el('div',{class:'secthead'}, el('h3',{}, title), el('span',{class:'n'}, count));
+}
+// Nudge toward review wherever you are in the app: a count on the Log tab and a
+// prompt on the Draw screen, so a draw is judged while you still remember it.
+function syncReview(){
+  const due = dueDraws();
+  const badge = $('#logbadge');
+  if(badge){ badge.textContent = due.length > 9 ? '9+' : String(due.length); badge.hidden = !due.length; }
+  const box = $('#reviewprompt');
+  if(!box) return;
+  box.innerHTML = '';
+  if(!due.length){ box.hidden = true; return; }
+  box.hidden = false;
+  const oldest = due[0];
+  const q = oldest.question.length > 72 ? oldest.question.slice(0,72) + '...' : oldest.question;
+  box.appendChild(el('div',{class:'prompt'},
+    el('div',{class:'hd'}, due.length === 1 ? 'One draw is ready to judge' : due.length + ' draws are ready to judge'),
+    el('p',{class:'small muted'}, 'Oldest: ' + q),
+    el('div',{class:'row'},
+      el('button',{class:'btn primary', onclick:()=>showTab('log')}, 'Review now'),
+      el('button',{class:'btn ghost', onclick:()=>openSheet(oldest.id)}, 'Judge that one'))));
+}
 function renderLog(){
-  const list=$('#loglist'); list.innerHTML='';
-  const draws=allDraws();
-  const p=$('#pending'); p.innerHTML='';
-  const q=queueDraws();
-  if(q.length){
-    const over=q.filter(d=>d.checkAt&&new Date(d.checkAt).getTime()<Date.now()).length;
-    const box=el('div',{class:'queue'}, el('h3',{}, `Waiting for a verdict \u00b7 ${q.length}${over?` \u00b7 ${over} due`:''}`));
-    q.forEach(d=>box.appendChild(entryButton(d, dueLabel(d))));
-    box.appendChild(el('p',{class:'small muted'},'A draw leaves this queue only when you record whether it held up. Tap one to judge it or move its check date.'));
-    p.appendChild(box); p.appendChild(el('hr'));
+  const list = $('#loglist'); list.innerHTML='';
+  const p = $('#pending'); p.innerHTML='';
+  const draws = allDraws();
+  const due = dueDraws(), sched = scheduledDraws();
+  const waiting = state.draws.filter(d => reviewState(d) === 'waiting').length;
+  const done = state.draws.filter(d => reviewState(d) === 'done').length;
+
+  // 1. what is asking for attention right now
+  if(due.length){
+    const box = el('div',{class:'duebox'},
+      el('div',{class:'secthead'},
+        el('h3',{style:'color:var(--accent)'}, 'Ready to judge'),
+        el('span',{class:'n'}, due.length + (due.length === 1 ? ' draw' : ' draws'))),
+      el('p',{class:'small muted'}, 'Enough time has passed on these. Say whether each one held up, while you still remember what happened.'));
+    due.forEach(d => box.appendChild(entryButton(d, dueLabel(d))));
+    p.appendChild(box);
+  } else if(state.draws.length){
+    p.appendChild(el('div',{class:'duebox none'},
+      el('div',{class:'secthead'}, el('h3',{}, 'Nothing to judge yet'), el('span',{class:'n'}, '')),
+      el('p',{class:'small muted'},
+        sched.length ? 'The next one is due ' + new Date(sched[0].checkAt).toLocaleString([], {weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) + '.'
+                     : waiting ? 'Recent draws are still settling. They start asking after ' + REVIEW_GRACE_DAYS + ' days.'
+                               : 'Every draw in the ledger has a verdict.')));
   }
-  if(!draws.length){ list.appendChild(el('div',{class:'panel muted'}, 'Nothing in the ledger yet. Your ',el('b',{},H.length.toLocaleString()),' earlier draws from screenshots are counted in Study, but they have no questions attached, which is why this ledger exists.')); return; }
-  const byDay={}; draws.forEach(d=>{ (byDay[d.ts.slice(0,10)]=byDay[d.ts.slice(0,10)]||[]).push(d); });
-  Object.keys(byDay).sort().reverse().forEach(k=>{
-    const day=el('div',{class:'day'}, el('h3',{}, el('span',{},fmtDay(k)), el('span',{class:'num'}, byDay[k].length+' draws')));
-    byDay[k].forEach(d=>{
-      const c=CARD[d.cardId];
-      day.appendChild(el('button',{class:'entry', onclick:()=>openSheet(d.id)},
-        el('img',{src:c.img,alt:''}),
-        el('div',{}, el('div',{class:'t'}, c.name+(d.reversed?' (rev)':''), (()=>{ const y=cardVerdict(d.cardId); return y?el('span',{class:'ynmini '+y.cls, title:'The site\u2019s yes/no answer for this card'}, y.label):null; })()), el('div',{class:'q'}, d.question), el('div',{class:'row small',style:'gap:8px;margin-top:4px'}, dots(d.resonance), verdictPill(d))),
-        el('div',{class:'time'}, fmtTime(new Date(d.ts)))));
-    });
+
+  // 2. scheduled for later, folded away
+  if(sched.length){
+    const dt = el('details',{}, el('summary',{}, 'Scheduled for later (' + sched.length + ')'));
+    sched.forEach(d => dt.appendChild(entryButton(d, dueLabel(d))));
+    p.appendChild(el('div',{class:'panel stack'}, dt));
+  }
+
+  if(!draws.length){
+    list.appendChild(el('div',{class:'panel muted'}, 'Nothing in the ledger yet. Your ', el('b',{}, H.length.toLocaleString()),
+      ' earlier draws from screenshots are counted in Study, but they have no questions attached, which is why this ledger exists.'));
+    return;
+  }
+
+  // 3. the full record, filterable, newest first
+  const counts = {all: draws.length, open: draws.length - done, done: done};
+  const FILTERS = [['all','All'],['open','Not yet judged'],['done','Judged']];
+  const bar = el('div',{class:'filters'});
+  const drawBar = () => {
+    bar.innerHTML = '';
+    FILTERS.forEach(([k,label]) => bar.appendChild(el('button',{type:'button','aria-pressed':String(state.logFilter === k),
+      onclick:()=>{ state.logFilter = k; renderLog(); }}, label + ' ' + counts[k])));
+  };
+  drawBar();
+  list.appendChild(el('div',{}, sectionHead('History', draws.length + ' in the ledger'), bar));
+
+  const keep = d => state.logFilter === 'all' ? true
+                  : state.logFilter === 'done' ? reviewState(d) === 'done'
+                  : reviewState(d) !== 'done';
+  const shown = draws.filter(keep);
+  if(!shown.length){ list.appendChild(el('div',{class:'emptyline'}, 'Nothing matches that filter.')); return; }
+
+  const byDay = {};
+  shown.forEach(d => { (byDay[d.ts.slice(0,10)] = byDay[d.ts.slice(0,10)] || []).push(d); });
+  Object.keys(byDay).sort().reverse().forEach(k => {
+    const rows = byDay[k].slice().sort((x,y) => x.ts < y.ts ? 1 : -1);
+    const day = el('div',{class:'day'}, el('h3',{}, el('span',{}, fmtDay(k)),
+      el('span',{class:'num'}, rows.length + (rows.length === 1 ? ' draw' : ' draws'))));
+    rows.forEach(d => day.appendChild(entryButton(d, reviewState(d) === 'scheduled' ? dueLabel(d) : null)));
     list.appendChild(day);
   });
 }
@@ -602,7 +697,7 @@ function openSheet(id){
 // ---------- study ----------
 function merged(){
   const a = state.draws.map(d=>({ts:new Date(d.ts), cardId:d.cardId, page:d.rtype, odds:d.odds, src:'app', d}));
-  const h = H.map(x=>({ts:new Date(x.t), cardId:x.c, page:x.p, odds:'site', src:'shot', n:x.n}));
+  const h = H.map(x=>({ts:new Date(x.t), cardId:x.c, page:x.p, odds:'site', src:'shot', n:x.n, v:x.v}));
   return a.concat(h).sort((x,y)=>x.ts-y.ts);
 }
 function css(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
@@ -618,6 +713,122 @@ function barChart(canvas, labels, values, opts={}){
 }
 function mean(a){ return a.length? a.reduce((x,y)=>x+y,0)/a.length : null; }
 function f1(x){ return x==null?'\u2013':(Math.round(x*10)/10).toFixed(1); }
+// ---------- consistency ----------
+// Which cards the site itself cannot give a straight answer on.
+function contradictingCards(){
+  const out = [];
+  D.cards.forEach(c => {
+    const ans = [...new Set((D.variants[c.id]||[])
+      .filter(v => (v.field||'').toLowerCase() === 'answer')
+      .map(v => v.text.trim().toUpperCase()).filter(Boolean))];
+    if(ans.length > 1) out.push({card:c, answers:ans.sort()});
+  });
+  return out;
+}
+// How many different write-ups you have actually been shown for each card.
+function passageSpread(){
+  const seen = {}, count = {};
+  merged().forEach(x => {
+    count[x.cardId] = (count[x.cardId] || 0) + 1;
+    let key = null;
+    if(x.src === 'shot') key = (x.v == null ? null : 'v' + x.v);
+    else if(x.d && x.d.passages && x.d.passages.length) key = x.d.passages.map(q => q.text).join('|').slice(0,120);
+    else if(x.d && x.d.variants && x.d.variants.length) key = 'v' + x.d.variants[0];
+    if(key) (seen[x.cardId] = seen[x.cardId] || new Set()).add(key);
+  });
+  return {seen, count};
+}
+const STOPWORDS = new Set(('the and for are was you your his her not but can how why who one out get got all any has had did its '
+  + 'will what when does this that with have about they them from into should would could there their make made been being over '
+  + 'than then same just like know want need her him she he it a i is of to in on my me do if or so am be at as it').split(' '));
+// Loose grouping of questions you have asked more than once.
+function repeatGroups(){
+  const tok = q => new Set(q.toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(w => w.length > 2 && !STOPWORDS.has(w)));
+  const groups = [];
+  state.draws.filter(d => d.question && d.question.trim().length > 6).forEach(d => {
+    const t = tok(d.question);
+    if(!t.size) return;
+    const g = groups.find(g => {
+      const inter = [...t].filter(w => g.tokens.has(w)).length;
+      const uni = new Set([...t, ...g.tokens]).size;
+      return uni && inter / uni >= 0.5;
+    });
+    if(g){ g.items.push(d); t.forEach(w => g.tokens.add(w)); }
+    else groups.push({tokens:new Set(t), items:[d]});
+  });
+  return groups.filter(g => g.items.length > 1)
+               .sort((a,b) => b.items.length - a.items.length);
+}
+function consistencyPanel(){
+  const wrap = el('div',{class:'panel stack'}, el('h3',{},'Consistency'));
+  const contra = contradictingCards();
+  const per = D.cards.map(c => (D.variants[c.id]||[]).length).sort((a,b) => a - b);
+  const med = per[Math.floor(per.length/2)];
+  const {seen, count} = passageSpread();
+  const drawnContra = contra.filter(x => count[x.card.id]);
+
+  wrap.appendChild(el('div',{class:'tiles'},
+    el('div',{class:'tile'}, el('div',{class:'v num'}, contra.length + '/78'), el('div',{class:'l'},'cards the site answers yes AND no, depending on the page')),
+    el('div',{class:'tile'}, el('div',{class:'v num'}, String(med)), el('div',{class:'l'},'write-ups per card, typical (range ' + per[0] + ' to ' + per[per.length-1] + ')')),
+    el('div',{class:'tile'}, el('div',{class:'v num'}, String(drawnContra.length)), el('div',{class:'l'},'of those contradictory cards you have actually drawn'))));
+
+  wrap.appendChild(el('p',{class:'small muted'},
+    'The source is not a fixed text. Roughly a third of the deck gets opposite yes/no answers on different pages of the same site, and each card carries dozens of alternative write-ups. Whatever a reading tells you, a different page would often have told you something else.'));
+
+  if(drawnContra.length){
+    const t = el('table',{}, el('thead',{}, el('tr',{}, el('th',{},'Card'), el('th',{},'The site says'), el('th',{class:'r'},'You drew it'))));
+    const b = el('tbody');
+    drawnContra.sort((x,y) => (count[y.card.id]||0) - (count[x.card.id]||0)).slice(0,10).forEach(x => {
+      b.appendChild(el('tr',{},
+        el('td',{}, x.card.name),
+        el('td',{}, x.answers.map(a => a.charAt(0) + a.slice(1).toLowerCase()).join(' and ')),
+        el('td',{class:'r num'}, String(count[x.card.id] || 0))));
+    });
+    t.appendChild(b);
+    wrap.appendChild(el('div',{class:'tablewrap'}, t));
+  }
+
+  // how much variety you have actually been served
+  const drawn = Object.keys(count).sort((a,b) => count[b] - count[a]).slice(0,8);
+  if(drawn.length){
+    const t = el('table',{}, el('thead',{}, el('tr',{}, el('th',{},'Most drawn'), el('th',{class:'r'},'Times'),
+      el('th',{class:'r'},'Different write-ups seen'), el('th',{class:'r'},'Exist'))));
+    const b = el('tbody');
+    drawn.forEach(cid => {
+      const c = CARD[cid]; if(!c) return;
+      b.appendChild(el('tr',{},
+        el('td',{}, c.name),
+        el('td',{class:'r num'}, String(count[cid])),
+        el('td',{class:'r num'}, String((seen[cid] || new Set()).size || '-')),
+        el('td',{class:'r num'}, String((D.variants[cid]||[]).length))));
+    });
+    t.appendChild(b);
+    wrap.appendChild(el('h3',{style:'margin-top:6px'},'Same card, different words'));
+    wrap.appendChild(el('p',{class:'small muted'},'How many distinct passages you were actually shown, against how many exist for that card. The daily page only rotates two or three per card, so repeat draws of the same card mostly repeat the same words.'));
+    wrap.appendChild(el('div',{class:'tablewrap'}, t));
+  }
+
+  // asking the same thing twice
+  const groups = repeatGroups();
+  wrap.appendChild(el('h3',{style:'margin-top:6px'},'Asking the same thing twice'));
+  if(!groups.length){
+    wrap.appendChild(el('p',{class:'small muted'},'Nothing yet. When you ask a similar question more than once, this will show which cards came up each time and whether they agreed. That is the cleanest test available here: the same question should not get contradictory answers if the cards are tracking anything real.'));
+  } else {
+    groups.slice(0,6).forEach(g => {
+      const answers = g.items.map(d => { const y = cardVerdict(d.cardId); return y ? y.label : null; }).filter(Boolean);
+      const uniq = [...new Set(answers)];
+      const agreed = uniq.length <= 1;
+      const box = el('div',{class:'alt'},
+        el('div',{class:'src'}, g.items.length + ' times asked'),
+        el('p',{}, g.items[0].question),
+        el('div',{class:'row small',style:'gap:8px;margin-top:6px'},
+          el('span',{class:'pill ' + (agreed ? 'true' : 'no')}, agreed ? 'consistent' : 'contradicted itself'),
+          el('span',{class:'muted'}, g.items.map(d => (CARD[d.cardId]||{}).name).join(', '))));
+      wrap.appendChild(box);
+    });
+  }
+  return wrap;
+}
 function renderStudy(){
   const root=$('#s-study'); root.innerHTML='';
   const all=merged(); const app=state.draws.slice();
@@ -671,6 +882,7 @@ function renderStudy(){
     p.appendChild(el('p',{class:'small muted'},'The test that matters: do the readings that felt "dead on" at the time hold up more often than the ones that felt like nothing? If the last column is flat, the feeling of accuracy is not tracking accuracy.'));
   } else p.appendChild(el('p',{class:'small muted'},'Verdicts appear here once you go back to logged draws and say whether they held up. Give it a couple of weeks.'));
   root.appendChild(p);
+  root.appendChild(consistencyPanel());
   // export
   const ex=el('div',{class:'panel stack'}, el('h3',{},'Export'), el('p',{class:'small muted'},'Everything in the ledger as JSON, for analysis outside the app.'));
   ex.appendChild(el('div',{class:'row'}, el('button',{class:'btn', onclick:exportJson},'Download ledger.json'), el('button',{class:'btn ghost', onclick:()=>{ const ta=el('textarea',{style:'min-height:160px;font-size:12px'}); ta.value=JSON.stringify({draws:state.draws},null,1); ex.appendChild(ta); ta.select(); }},'Show as text')));
@@ -792,11 +1004,11 @@ function renderCard(cid){
 // ---------- tabs ----------
 function showTab(t){ state.tab=t; document.querySelectorAll('.tabbar button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===t))); ['draw','log','study','deck'].forEach(k=>$('#s-'+k).hidden=(k!==t)); if(t==='log') renderLog(); if(t==='study') renderStudy(); if(t==='deck') renderDeck(); window.scrollTo({top:0}); }
 document.querySelector('.tabbar').addEventListener('click', e=>{ const b=e.target.closest('button'); if(b) showTab(b.dataset.tab); });
-function renderAll(){ drawCount(); if(state.tab==='log') renderLog(); if(state.tab==='study') renderStudy(); if(state.tab==='deck' && $('#cardpage').hidden) renderDeck(); }
+function renderAll(){ drawCount(); syncReview(); if(state.tab==='log') renderLog(); if(state.tab==='study') renderStudy(); if(state.tab==='deck' && $('#cardpage').hidden) renderDeck(); }
 
 // ---------- boot ----------
 $('#today').textContent = new Date().toLocaleDateString([], {weekday:'long', month:'long', day:'numeric'});
-readingSelect(); drawCount(); syncDrawBtn();
+readingSelect(); drawCount(); syncDrawBtn(); syncReview();
 initAuth();
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 })();
