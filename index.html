@@ -132,6 +132,16 @@ summary{cursor:pointer;color:var(--violet);font-weight:600;font-size:15px}
 .prompt .hd{font-family:'Cormorant Garamond',Georgia,serif;font-size:21px;font-weight:600}
 .emptyline{color:var(--muted);font-size:15px;padding:2px 0}
 .clamp2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* spreads */
+.spread{display:flex;flex-direction:column;gap:18px;width:100%}
+.scard{display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center}
+.scard img{width:min(46vw,172px);aspect-ratio:9/16;object-fit:cover;border-radius:10px;border:1px solid var(--line);box-shadow:var(--shadow);background:var(--surface-2)}
+.scard img.rev{transform:rotate(180deg)}
+.pos{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:700}
+.scard h3{font-size:19px}
+.timing{border:1px solid var(--accent);border-radius:12px;padding:12px 14px;text-align:center}
+.timing .big{font-family:'Cormorant Garamond',Georgia,serif;font-size:30px;font-weight:600;color:var(--accent);line-height:1.1}
+.cardcount{font-size:12px;font-weight:700;color:var(--muted);margin-left:7px}
 .sect .src:first-child{margin-top:0}
 /* log */
 .day{display:flex;flex-direction:column;gap:8px}
@@ -273,9 +283,11 @@ hr{border:0;border-top:1px solid var(--line);margin:4px 0}
 const D = window.DECK; const H = (window.HISTORY && window.HISTORY.draws) || [];
 const CARD = {}; D.cards.forEach((c,i)=>{c.idx=i; CARD[c.id]=c;});
 const LABEL = {}; D.sets.forEach(s=>LABEL[s.page]=s.label);
+LABEL['when-will-it-happen'] = 'When will it happen';
+LABEL['past-present-future-tarot'] = 'Past, Present, Future';
 const SITE = 'https://www.dailytarotdraw.com/';
 const READINGS = [
-  'daily__tarot','free-tarot-card','daily-tarot-card-draw','draw-a-tarot-card','daily-card-revealed','yes-or-no-answer','free-daily-tarot-reading','single-card-tarot-reading','yes-or-no-tarot','love-tarot-yes-no','spiritual-guidance-tarot','career-tarot','money-tarot-spread','past-present-future-tarot','tarot-reading-online','tarot-card-meanings','free-tarot-reading-rider-waite','ask-the-oracle','how-to-do-a-tarot-reading-for-yourself','tarot-card','2-card-tarot','free-tarot-reading-love',
+  'daily__tarot','free-tarot-card','daily-tarot-card-draw','draw-a-tarot-card','daily-card-revealed','yes-or-no-answer','when-will-it-happen','past-present-future-tarot','2-card-tarot','situation-obstacle-advice-tarot-spread-for-self','5-card-tarot','elemental-tarot-spread','celtic-cross-tarot-reading','free-daily-tarot-reading','single-card-tarot-reading','yes-or-no-tarot','love-tarot-yes-no','spiritual-guidance-tarot','career-tarot','money-tarot-spread','past-present-future-tarot','tarot-reading-online','tarot-card-meanings','free-tarot-reading-rider-waite','ask-the-oracle','how-to-do-a-tarot-reading-for-yourself','tarot-card','2-card-tarot','free-tarot-reading-love',
   'aries-tarot-card-draw','taurus-tarot-card-draw','gemini-tarot-card-draw','cancer-tarot-card-draw','leo-tarot-card-draw','virgo-tarot-card-draw','libra-tarot-card-draw','scorpio-tarot-card-draw','sagittarius-tarot-card-draw','capricorn-tarot-card-draw','aquarius-tarot-card-draw','ophiuchus-tarot-reading','major-arcana-card-draw'
 ].filter(p=>LABEL[p] || D.daily_entries[p]);
 const FIELD = {text:'',desc:'Meaning',challenge:'Challenge',action:'Action',key:'Keyword',upright:'Upright',reversed:'Reversed',answer:'Answer',meaning:'Meaning',meaning2:'Guidance',message:'Message',keywords:'Keywords',astrology:'Astrology',mind:'Mind',body:'Body',spirit:'Spirit',description:'',phrase:'Phrase',rw_meaning:'Meaning',rw_addendum:'',rw_love:'Love',name:''};
@@ -302,6 +314,32 @@ let toastT; function toast(m){ const r=$('#toastroot'); r.innerHTML=''; r.append
 function variantsFor(page, cid){ return D.variants[cid].map((v,i)=>({...v,i})).filter(v=>v.pages.includes(page)); }
 function isReversedText(v){ return v.field==='reversed' || /^\s*(reversed|\(?in its reversed)/i.test(v.text) || (v.field==='rw_addendum' && /^reversed/i.test(v.text)) || (v.field==='rw_love' && /^reversed/i.test(v.text)); }
 function pageHasReversed(page){ return D.cards.some(c=>variantsFor(page,c.id).some(isReversedText)); }
+// How many cards each reading deals, and what each position means. Position names
+// for the Celtic Cross are the ones the site's own page uses.
+const SPREADS = {
+  'past-present-future-tarot': {n:3, positions:['Past','Present','Future'], ordered:true},
+  '2-card-tarot': {n:2, positions:['The situation','What it asks of you']},
+  'situation-obstacle-advice-tarot-spread-for-self': {n:3, positions:['Situation','Obstacle','Advice']},
+  'elemental-tarot-spread': {n:5, positions:['Fire, what drives it','Water, what you feel','Air, what you think','Earth, what is solid','Where they meet']},
+  '5-card-tarot': {n:5, positions:['Where you are','The challenge','What is beneath it','What is behind you','Where it leads']},
+  'celtic-cross-tarot-reading': {n:10, positions:['Situation','What crosses it','Goal','Beneath','Behind','Ahead','Yourself','Your house','Hopes or fears','Outcome']},
+  'when-will-it-happen': {n:1, timing:true, textFrom:'daily__tarot'}
+};
+function spreadSize(page){ return (SPREADS[page] && SPREADS[page].n) || 1; }
+// Traditional timing correspondences. NOT from dailytarotdraw.com, which has no
+// timing reading; the app labels it as ours wherever it is shown.
+function timingFor(cardId){
+  const c = CARD[cardId];
+  if(!c) return null;
+  if(c.arcana === 'major') return {label:'No fixed time',
+    detail:'Major Arcana cards mark turning points rather than dates. The timing here is set by events, not by a clock.'};
+  if(['Page','Knight','Queen','King'].includes(c.rank)) return {label:'When someone moves',
+    detail:'Court cards point to a person rather than a date. It happens when they act, or when you do.'};
+  const unit = {Wands:'days', Swords:'weeks', Cups:'weeks', Pentacles:'months'}[c.suit];
+  const n = c.number;
+  const label = n === 1 ? 'About a ' + unit.replace(/s$/,'') : 'About ' + n + ' ' + unit;
+  return {label, detail:'Counting the card’s number in ' + unit + ', the pace traditionally given to ' + c.suit + '.'};
+}
 function pickReading(page, odds, allowRev){
   const entries = D.daily_entries[page];
   let cid, vidx=[], heading=null, entry=null, reversed=false;
@@ -323,6 +361,36 @@ function pickReading(page, odds, allowRev){
   }
   return {cardId:cid, page, variants:vidx, heading, entry, reversed};
 }
+// Deal the whole spread: distinct cards, one per position.
+function pickSpread(page, odds, allowRev){
+  const spec = SPREADS[page] || {n:1};
+  const textPage = spec.textFrom || page;
+  const n = Math.min(spec.n || 1, 78);
+  const out = [], used = new Set();
+  let guard = 0;
+  while(out.length < n && guard++ < 800){
+    const one = pickReading(textPage, odds, allowRev);
+    if(used.has(one.cardId)) continue;
+    used.add(one.cardId);
+    one.position = spec.positions ? (spec.positions[out.length] || null) : null;
+    out.push(one);
+  }
+  // Past / present / future carries text written for each position; the site emits
+  // them in that order, so position i takes the i-th write-up for that card.
+  if(spec.ordered){
+    out.forEach((c, i) => {
+      const vs = variantsFor(textPage, c.cardId);
+      if(vs[i]) { c.variants = [vs[i].i]; c.heading = null; }
+    });
+  }
+  return out;
+}
+// Every card in a draw, old single-card rows included.
+function cardsOf(d){
+  if(Array.isArray(d.cards) && d.cards.length) return d.cards;
+  return [{cardId:d.cardId, reversed:!!d.reversed, position:null,
+           variants:d.variants||[], passages:d.passages||[], heading:d.heading||null, entry:d.entry}];
+}
 function siteProb(page, cid){ const e=D.daily_entries[page]; if(e && e.length){ return e.filter(x=>x.card===cid).length/e.length; } return 1/78; }
 
 // ---------- persistence (Supabase) ----------
@@ -332,8 +400,8 @@ const sb = (window.supabase && window.supabase.createClient) ? window.supabase.c
 let user=null;
 function allDraws(){ return state.draws.slice().sort((a,b)=>a.ts<b.ts?1:-1); }
 function saveLocal(){ LS.set('tl.draws', state.draws); LS.set('tl.prefs', state.prefs); LS.set('tl.dirty', [...state.dirty]); LS.set('tl.deleted', [...state.deleted]); }
-const toRow = d=>({ id:d.id, user_id:user.id, ts:new Date(d.ts).toISOString(), question:d.question, card_id:d.cardId, rtype:d.rtype||null, odds:d.odds||null, reversed:!!d.reversed, variants:d.variants||[], passages:d.passages||[], heading:d.heading||null, entry:(d.entry==null?null:d.entry), resonance:d.resonance||null, note:d.note||'', check_at:d.checkAt?new Date(d.checkAt).toISOString():null, follow_up:d.followUp||null, source:d.source||'app' });
-const fromRow = r=>({ id:r.id, ts:localIso(new Date(r.ts)), question:r.question, cardId:r.card_id, rtype:r.rtype, odds:r.odds, reversed:!!r.reversed, variants:r.variants||[], passages:r.passages||[], heading:r.heading, entry:r.entry, resonance:r.resonance, note:r.note||'', checkAt:r.check_at?localIso(new Date(r.check_at)):null, followUp:r.follow_up||null, source:r.source||'app' });
+const toRow = d=>({ id:d.id, user_id:user.id, ts:new Date(d.ts).toISOString(), question:d.question, card_id:d.cardId, rtype:d.rtype||null, odds:d.odds||null, reversed:!!d.reversed, variants:d.variants||[], passages:d.passages||[], cards:d.cards||[], timing:d.timing||null, heading:d.heading||null, entry:(d.entry==null?null:d.entry), resonance:d.resonance||null, note:d.note||'', check_at:d.checkAt?new Date(d.checkAt).toISOString():null, follow_up:d.followUp||null, source:d.source||'app' });
+const fromRow = r=>({ id:r.id, ts:localIso(new Date(r.ts)), question:r.question, cardId:r.card_id, rtype:r.rtype, odds:r.odds, reversed:!!r.reversed, variants:r.variants||[], passages:r.passages||[], cards:r.cards||[], timing:r.timing||null, heading:r.heading, entry:r.entry, resonance:r.resonance, note:r.note||'', checkAt:r.check_at?localIso(new Date(r.check_at)):null, followUp:r.follow_up||null, source:r.source||'app' });
 function setStatus(html){ $('#status').innerHTML=html; }
 function statusLine(){
   if(!sb) return setStatus('<b class="off">Storage library failed to load.</b> Entries save on this device only.');
@@ -395,19 +463,33 @@ const sel = { res:null };
 function scale(id, key){ const n=$('#'+id); n.innerHTML=''; for(let i=1;i<=5;i++){ n.appendChild(el('button',{type:'button','aria-pressed':String(sel[key]===i), onclick:()=>{ sel[key]=(sel[key]===i?null:i); scale(id,key); }}, String(i))); } }
 function readingSelect(){
   const s=$('#rtype'); s.innerHTML='';
-  READINGS.forEach(p=>s.appendChild(el('option',{value:p}, LABEL[p]||p)));
+  READINGS.forEach(p=>{ const n=spreadSize(p); s.appendChild(el('option',{value:p}, (LABEL[p]||p) + (n>1 ? ' \u00b7 ' + n + ' cards' : ''))); });
   s.value = state.prefs.rtype; s.onchange=()=>{ state.prefs.rtype=s.value; saveLocal(); oddsUi(); };
   oddsUi();
 }
 function oddsUi(){
-  const p=state.prefs.rtype, e=D.daily_entries[p];
-  $('#odds').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.v===state.prefs.odds)));
+  const p = state.prefs.rtype;
+  const spec = SPREADS[p] || {};
+  const textPage = spec.textFrom || p;
+  const e = D.daily_entries[textPage];
+  const n = spreadSize(p);
+  $('#odds').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === state.prefs.odds)));
   $('#odds').style.display = e ? '' : 'none';
-  const hasRev = pageHasReversed(p); $('#revwrap').style.display = hasRev?'':'none'; $('#rev').checked = !!state.prefs.rev;
-  const note=$('#oddsnote');
-  if(e){ const dup = {}; e.forEach(x=>dup[x.card]=(dup[x.card]||0)+1); const multi=Object.keys(dup).filter(k=>dup[k]>1);
-    note.textContent = `The site's "${LABEL[p]}" page picks 1 of ${e.length} write-ups, not 1 of 78 cards: ${multi.length} cards have two or three write-ups, so they come up more often. "Site odds" copies that; "Even 78" gives every card the same chance.`;
-  } else note.textContent = `Every card has the same 1-in-78 chance. Text is the site's "${LABEL[p]}" write-up.`;
+  const hasRev = pageHasReversed(textPage);
+  $('#revwrap').style.display = hasRev ? '' : 'none';
+  $('#rev').checked = !!state.prefs.rev;
+  const bits = [];
+  if(n > 1) bits.push('Deals ' + n + ' different cards, one for each position.');
+  if(spec.timing) bits.push('The timing is read from the card’s suit and number, the traditional method. dailytarotdraw.com has no timing page, so that part is not theirs; the card text under it is.');
+  if(e){
+    const dup = {}; e.forEach(x => dup[x.card] = (dup[x.card] || 0) + 1);
+    const many = Object.keys(dup).filter(k => dup[k] > 1);
+    bits.push('The site’s "' + (LABEL[textPage] || textPage) + '" page picks 1 of ' + e.length + ' write-ups, not 1 of 78 cards: ' + many.length
+      + ' cards have two or three write-ups, so they come up more often. "Site odds" copies that; "Even 78" gives every card the same chance.');
+  } else if(!spec.timing){
+    bits.push('Every card has the same 1-in-78 chance. Text is the site’s "' + (LABEL[p] || p) + '" write-up.');
+  }
+  $('#oddsnote').textContent = bits.join(' ');
 }
 $('#odds').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b) return; state.prefs.odds=b.dataset.v; saveLocal(); oddsUi(); });
 $('#rev').addEventListener('change', e=>{ state.prefs.rev=e.target.checked; saveLocal(); });
@@ -425,9 +507,23 @@ function drawCount(){
 $('#drawbtn').addEventListener('click', ()=>{
   const q=$('#q').value.trim();
   if(!q){ const t=$('#q'); t.scrollIntoView({behavior:'smooth',block:'center'}); t.focus(); toast('Write your question first.'); return; }
-  const r = pickReading(state.prefs.rtype, state.prefs.odds, state.prefs.rev);
-  const now=new Date();
-  state.pending = { id:uid(), ts:localIso(now), question:q, rtype:r.page, odds:D.daily_entries[r.page]?state.prefs.odds:'even', cardId:r.cardId, reversed:r.reversed, variants:r.variants, passages:buildPassages(r.cardId, r.variants, r.heading), heading:r.heading, entry:r.entry, resonance:null, note:'', checkAt:null, followUp:null, source:'app' };
+  const page = state.prefs.rtype;
+  const spec = SPREADS[page] || {};
+  const picks = pickSpread(page, state.prefs.odds, state.prefs.rev);
+  const cards = picks.map(r => ({
+    cardId: r.cardId, reversed: !!r.reversed, position: r.position || null,
+    variants: r.variants, passages: buildPassages(r.cardId, r.variants, r.heading),
+    heading: r.heading, entry: r.entry
+  }));
+  const first = cards[0];
+  const now = new Date();
+  state.pending = { id:uid(), ts:localIso(now), question:q, rtype:page,
+    odds: D.daily_entries[spec.textFrom || page] ? state.prefs.odds : 'even',
+    cards,
+    cardId:first.cardId, reversed:first.reversed, variants:first.variants,
+    passages:first.passages, heading:first.heading, entry:first.entry,
+    timing: spec.timing ? timingFor(first.cardId) : null,
+    resonance:null, note:'', checkAt:null, followUp:null, source:'app' };
   sel.res=null; $('#note').value=''; checkBackUI($('#checkback'), state.pending);
   renderReveal(state.pending, $('#reveal'));
   scale('res','res');
@@ -464,27 +560,52 @@ function readingBlocks(d){
   return passagesFor(d).map(v=>el('div',{}, fl(v)?el('div',{class:'fld'},fl(v)):null, el('p',{}, v.text)));
 }
 function renderReveal(d, root){
-  const c=CARD[d.cardId]; root.innerHTML='';
-  const img=el('img',{src:c.img, alt:c.name+(d.reversed?' reversed':''), class:d.reversed?'rev':''});
-  root.appendChild(img);
-  root.appendChild(el('div',{}, el('div',{class:'eyebrow'}, LABEL[d.rtype]||d.rtype), el('h2',{}, leadFor(d.cardId, d.heading).head), d.reversed?el('div',{class:'small muted'},'reversed'):null));
-  const rd=el('div',{class:'reading'}, ...readingBlocks(d));
-  root.appendChild(rd);
-  const others = D.variants[d.cardId].map((v,i)=>({...v,i})).filter(v=>!(d.variants||[]).includes(v.i));
-  const samePage = others.filter(v=>v.pages.includes(d.rtype));
-  if(others.length){
-    const det=el('details',{}, el('summary',{}, `${others.length} other write-ups of ${c.name} on the site${samePage.length?` (${samePage.length} on this same page)`:''}`));
-    const groups={}; others.forEach(v=>v.pages.forEach(p=>{ (groups[p]=groups[p]||[]); if(!groups[p].includes(v)) groups[p].push(v); }));
-    Object.keys(groups).sort((a,b)=>(a===d.rtype?-1:b===d.rtype?1:0)).forEach(p=>{
-      const g=el('div',{class:'alt'}, el('div',{class:'eyebrow'}, LABEL[p]||p));
-      groups[p].forEach(v=>g.appendChild(el('p',{style:'margin-top:6px'}, (fl(v)?fl(v)+': ':'')+v.text)));
-      det.appendChild(g);
-    });
-    root.appendChild(det);
+  root.innerHTML = '';
+  const cards = cardsOf(d);
+  const multi = cards.length > 1;
+  root.appendChild(el('div',{class:'eyebrow'}, (LABEL[d.rtype] || d.rtype) + (multi ? ' · ' + cards.length + ' cards' : '')));
+
+  if(d.timing){
+    root.appendChild(el('div',{class:'timing'},
+      el('div',{class:'big'}, d.timing.label),
+      el('p',{class:'small muted',style:'margin-top:6px'}, d.timing.detail),
+      el('p',{class:'small muted',style:'margin-top:6px'}, 'Timing comes from the suit and number, the traditional reading. The site does not publish one.')));
   }
-  root.appendChild(el('div',{class:'row',style:'justify-content:center;gap:14px'},
-    el('button',{class:'btn ghost', onclick:()=>{ showTab('deck'); renderCard(c.id); }}, 'More about ' + c.name),
-    el('a',{class:'small', href:SITE+c.id, target:'_blank', rel:'noopener'}, 'On the site')));
+
+  const spread = el('div',{class:'spread'});
+  cards.forEach(cd => {
+    const c = CARD[cd.cardId];
+    if(!c) return;
+    const box = el('div',{class:'scard'});
+    if(cd.position) box.appendChild(el('div',{class:'pos'}, cd.position));
+    box.appendChild(el('img',{src:c.img, alt:c.name + (cd.reversed ? ' reversed' : ''), class:cd.reversed ? 'rev' : ''}));
+    box.appendChild(el(multi ? 'h3' : 'h2', {}, leadFor(cd.cardId, cd.heading).head));
+    if(cd.reversed) box.appendChild(el('div',{class:'small muted'}, 'reversed'));
+    box.appendChild(el('div',{class:'reading'}, ...readingBlocks(cd)));
+    box.appendChild(el('button',{class:'btn ghost', onclick:()=>{ showTab('deck'); renderCard(c.id); }}, 'More about ' + c.name));
+    spread.appendChild(box);
+  });
+  root.appendChild(spread);
+
+  // The full alternatives list is only readable for a single card.
+  if(!multi){
+    const cd = cards[0], c = CARD[cd.cardId];
+    const others = D.variants[cd.cardId].map((v,i) => ({...v, i})).filter(v => !(cd.variants||[]).includes(v.i));
+    const samePage = others.filter(v => v.pages.includes(d.rtype));
+    if(others.length){
+      const det = el('details',{}, el('summary',{}, others.length + ' other write-ups of ' + c.name + ' on the site'
+        + (samePage.length ? ' (' + samePage.length + ' on this same page)' : '')));
+      const groups = {};
+      others.forEach(v => v.pages.forEach(pg => { (groups[pg] = groups[pg] || []); if(!groups[pg].includes(v)) groups[pg].push(v); }));
+      Object.keys(groups).sort((x,y) => (x === d.rtype ? -1 : y === d.rtype ? 1 : 0)).forEach(pg => {
+        const g = el('div',{class:'alt'}, el('div',{class:'eyebrow'}, LABEL[pg] || pg));
+        groups[pg].forEach(v => g.appendChild(el('p',{style:'margin-top:6px'}, (fl(v) ? fl(v) + ': ' : '') + v.text)));
+        det.appendChild(g);
+      });
+      root.appendChild(det);
+    }
+    root.appendChild(el('p',{class:'small'}, el('a',{href:SITE + c.id, target:'_blank', rel:'noopener'}, 'On the site')));
+  }
 }
 $('#save').addEventListener('click', async ()=>{
   const d=state.pending; if(!d) return;
@@ -545,11 +666,23 @@ function cardVerdict(cardId){
           cls: a === 'YES' ? 'yes' : a === 'NO' ? 'no' : 'maybe',
           mixed:false};
 }
+function rowTitle(d){
+  const cs = cardsOf(d);
+  const c = CARD[cs[0].cardId] || {name:'?'};
+  const out = [c.name + (cs[0].reversed ? ' (rev)' : '')];
+  if(cs.length > 1){
+    out.push(el('span',{class:'cardcount'}, '+' + (cs.length - 1) + ' more'));
+  } else {
+    const y = cardVerdict(cs[0].cardId);
+    if(y) out.push(el('span',{class:'ynmini ' + y.cls, title:'The site\u2019s yes/no answer for this card'}, y.label));
+  }
+  return out;
+}
 function entryButton(d, extra){
   const c=CARD[d.cardId];
   return el('button',{class:'entry', onclick:()=>openSheet(d.id)},
     el('img',{src:c.img,alt:''}),
-    el('div',{}, el('div',{class:'t'}, c.name+(d.reversed?' (rev)':''), (()=>{ const y=cardVerdict(d.cardId); return y?el('span',{class:'ynmini '+y.cls, title:'The site\u2019s yes/no answer for this card'}, y.label):null; })()), el('div',{class:'q'}, d.question), el('div',{class:'row small',style:'gap:8px;margin-top:4px'}, dots(d.resonance), verdictPill(d), extra||null)),
+    el('div',{}, el('div',{class:'t'}, ...rowTitle(d)), el('div',{class:'q'}, d.question), el('div',{class:'row small',style:'gap:8px;margin-top:4px'}, dots(d.resonance), verdictPill(d), extra||null)),
     el('div',{class:'time'}, new Date(d.ts).toLocaleDateString([], {month:'short', day:'numeric'}), el('br'), fmtTime(new Date(d.ts))));
 }
 
@@ -669,13 +802,25 @@ function openSheet(id){
   const sh=el('div',{class:'sheet', role:'dialog','aria-label':'Draw details'});
   sh.appendChild(el('div',{class:'grab'}));
   sh.appendChild(el('div',{class:'row',style:'justify-content:space-between'}, el('div',{}, el('div',{class:'eyebrow'}, new Date(d.ts).toLocaleString([], {weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})), el('h2',{}, c.name+(d.reversed?' reversed':''))), el('img',{src:c.img,alt:'',style:'width:56px;border-radius:6px;border:1px solid var(--line)'})));
-  const yn = cardVerdict(d.cardId);
+  const yn = cardsOf(d).length === 1 ? cardVerdict(d.cardId) : null;
   if(yn) sh.appendChild(el('div',{}, el('div',{class:'eyebrow'},'Yes or no for this card'),
     el('div',{class:'ynline'}, el('span',{class:'v '+yn.cls}, yn.label),
       el('span',{class:'small muted'}, yn.mixed ? 'the site answers differently on different pages' : 'on the site\u2019s yes/no pages')),
     el('button',{class:'btn ghost', style:'margin-top:10px', onclick:()=>{ close(); showTab('deck'); renderCard(d.cardId); }}, 'More about ' + c.name)));
   sh.appendChild(el('div',{}, el('div',{class:'eyebrow'},'Question'), el('p',{style:'font-size:18px'}, d.question)));
-  const rd=el('details',{}, el('summary',{}, 'The reading you were given ('+(LABEL[d.rtype]||d.rtype)+')'), el('div',{class:'reading',style:'margin-top:10px'}, el('h3',{}, d.heading||c.name), ...readingBlocks(d))); sh.appendChild(rd);
+  const cs = cardsOf(d);
+  const rd = el('details',{}, el('summary',{}, 'The reading you were given ('
+    + (LABEL[d.rtype] || d.rtype) + (cs.length > 1 ? ', ' + cs.length + ' cards' : '') + ')'));
+  if(d.timing) rd.appendChild(el('div',{class:'timing',style:'margin-top:10px'},
+    el('div',{class:'big'}, d.timing.label), el('p',{class:'small muted',style:'margin-top:6px'}, d.timing.detail)));
+  cs.forEach(cd => {
+    const cc = CARD[cd.cardId]; if(!cc) return;
+    rd.appendChild(el('div',{class:'reading',style:'margin-top:12px'},
+      cd.position ? el('div',{class:'pos'}, cd.position) : null,
+      el('h3',{}, leadFor(cd.cardId, cd.heading).head + (cd.reversed ? ' (reversed)' : '')),
+      ...readingBlocks(cd)));
+  });
+  sh.appendChild(rd);
   const scaleIn=(key, labels)=>{ const wrap=el('div',{class:'scale'}); const draw=()=>{ wrap.innerHTML=''; for(let i=1;i<=5;i++) wrap.appendChild(el('button',{type:'button','aria-pressed':String(local[key]===i), onclick:()=>{ local[key]=(local[key]===i?null:i); draw(); }}, String(i))); }; draw(); return el('div',{}, wrap, el('div',{class:'scale-ends'}, el('span',{},labels[0]), el('span',{},labels[1]))); };
   sh.appendChild(el('div',{class:'field'}, el('label',{}, 'Did it land?'), scaleIn('res',['nothing','dead on'])));
   const note=el('textarea',{placeholder:'How it landed at the time'}); note.value=d.note||''; sh.appendChild(el('div',{class:'field'}, el('label',{},'Note'), note));
@@ -695,6 +840,16 @@ function openSheet(id){
 }
 
 // ---------- study ----------
+// Draw-level: one row per draw. Use for volume, pace and time of day.
+// Card-level: cardEvents(), one row per card, for anything about card frequency.
+function cardEvents(){
+  const out = [];
+  state.draws.forEach(d => cardsOf(d).forEach(c => out.push({
+    ts:new Date(d.ts), cardId:c.cardId, page:d.rtype, odds:d.odds, src:'app', card:c
+  })));
+  H.forEach(x => out.push({ts:new Date(x.t), cardId:x.c, page:x.p, odds:'site', src:'shot', v:x.v}));
+  return out.sort((a,b) => a.ts - b.ts);
+}
 function merged(){
   const a = state.draws.map(d=>({ts:new Date(d.ts), cardId:d.cardId, page:d.rtype, odds:d.odds, src:'app', d}));
   const h = H.map(x=>({ts:new Date(x.t), cardId:x.c, page:x.p, odds:'site', src:'shot', n:x.n, v:x.v}));
@@ -728,12 +883,12 @@ function contradictingCards(){
 // How many different write-ups you have actually been shown for each card.
 function passageSpread(){
   const seen = {}, count = {};
-  merged().forEach(x => {
+  cardEvents().forEach(x => {
     count[x.cardId] = (count[x.cardId] || 0) + 1;
     let key = null;
     if(x.src === 'shot') key = (x.v == null ? null : 'v' + x.v);
-    else if(x.d && x.d.passages && x.d.passages.length) key = x.d.passages.map(q => q.text).join('|').slice(0,120);
-    else if(x.d && x.d.variants && x.d.variants.length) key = 'v' + x.d.variants[0];
+    else if(x.card && x.card.passages && x.card.passages.length) key = x.card.passages.map(q => q.text).join('|').slice(0,120);
+    else if(x.card && x.card.variants && x.card.variants.length) key = 'v' + x.card.variants[0];
     if(key) (seen[x.cardId] = seen[x.cardId] || new Set()).add(key);
   });
   return {seen, count};
@@ -863,7 +1018,8 @@ function renderStudy(){
 
   // frequency vs expected under the odds actually in play
   const obs={}, expSite={}; D.cards.forEach(c=>{obs[c.id]=0;expSite[c.id]=0;});
-  all.forEach(x=>{ obs[x.cardId]++; D.cards.forEach(c=>{ expSite[c.id]+= (x.odds==='site' && D.daily_entries[x.page]) ? siteProb(x.page,c.id) : 1/78; }); });
+  const drawnCards = cardEvents();
+  drawnCards.forEach(x=>{ obs[x.cardId]++; D.cards.forEach(c=>{ expSite[c.id]+= (x.odds==='site' && D.daily_entries[x.page]) ? siteProb(x.page,c.id) : 1/78; }); });
   const rows=D.cards.map(c=>({c, o:obs[c.id], e:expSite[c.id]})).sort((a,b)=>b.o-a.o);
   const top=rows.slice(0,12), maxO=top[0]?top[0].o:1;
   const tbl=el('table',{}, el('thead',{}, el('tr',{}, el('th',{},'Card'), el('th',{class:'r'},'Drawn'), el('th',{class:'r'},'Expected'), el('th',{class:'r'},'Ratio'))));
@@ -900,7 +1056,7 @@ function exportJson(){
 // ---------- deck ----------
 function renderDeck(){
   const home=$('#deckhome'); home.innerHTML=''; $('#cardpage').hidden=true; home.hidden=false;
-  const all=merged(); const cnt={}; all.forEach(x=>cnt[x.cardId]=(cnt[x.cardId]||0)+1);
+  const cnt={}; cardEvents().forEach(x=>cnt[x.cardId]=(cnt[x.cardId]||0)+1);
   const g=el('div',{class:'grid'});
   D.cards.forEach(c=>g.appendChild(el('button',{onclick:()=>renderCard(c.id)}, el('img',{src:c.img,alt:'',loading:'lazy'}), el('b',{},c.name), el('span',{class:'num'}, (cnt[c.id]||0)+'\u00d7'))));
   home.appendChild(el('p',{class:'small muted',style:'margin-bottom:10px'}, 'All 78 Rider-Waite-Smith cards with every write-up the site uses for them. Counts include the screenshot history.'));
@@ -995,7 +1151,7 @@ function cardDetail(cid, root){
 }
 function renderCard(cid){
   const c=CARD[cid]; const home=$('#deckhome'); const pg=$('#cardpage'); home.hidden=true; pg.hidden=false; pg.innerHTML='';
-  const all=merged().filter(x=>x.cardId===cid); const appD=state.draws.filter(d=>d.cardId===cid);
+  const all=cardEvents().filter(x=>x.cardId===cid); const appD=state.draws.filter(d=>cardsOf(d).some(c=>c.cardId===cid));
   pg.appendChild(el('button',{class:'btn ghost', onclick:renderDeck}, '\u2190 All cards'));
   pg.appendChild(el('div',{class:'reveal panel',style:'margin-top:12px'}, el('img',{src:c.img,alt:c.name}), el('h2',{}, c.name), el('p',{class:'small muted'}, (c.arcana==='major'?'Major Arcana '+c.roman:c.suit)+` \u00b7 drawn ${all.length}\u00d7 (${appD.length} in the ledger)`+(appD.filter(d=>d.resonance).length?` \u00b7 avg landing ${f1(mean(appD.filter(d=>d.resonance).map(d=>d.resonance)))}`:''))));
   pg.appendChild(el('p',{class:'small muted'}, D.variants[cid].length+' write-ups for this card on the site, sorted below.'));
