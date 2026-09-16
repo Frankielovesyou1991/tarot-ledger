@@ -328,6 +328,19 @@ const SPREADS = {
 function spreadSize(page){ return (SPREADS[page] && SPREADS[page].n) || 1; }
 // Traditional timing correspondences. NOT from dailytarotdraw.com, which has no
 // timing reading; the app labels it as ours wherever it is shown.
+// The date a timing reading is actually pointing at, so the prediction can be
+// checked when it comes due instead of being forgotten.
+function timingHorizon(cardId){
+  const c = CARD[cardId];
+  if(!c || c.arcana === 'major') return null;
+  if(['Page','Knight','Queen','King'].includes(c.rank)) return null;
+  const d = new Date();
+  if(c.suit === 'Wands') d.setDate(d.getDate() + c.number);
+  else if(c.suit === 'Swords' || c.suit === 'Cups') d.setDate(d.getDate() + c.number * 7);
+  else d.setMonth(d.getMonth() + c.number);
+  d.setHours(9, 0, 0, 0);
+  return d;
+}
 function timingFor(cardId){
   const c = CARD[cardId];
   if(!c) return null;
@@ -523,7 +536,10 @@ $('#drawbtn').addEventListener('click', ()=>{
     cardId:first.cardId, reversed:first.reversed, variants:first.variants,
     passages:first.passages, heading:first.heading, entry:first.entry,
     timing: spec.timing ? timingFor(first.cardId) : null,
-    resonance:null, note:'', checkAt:null, followUp:null, source:'app' };
+    resonance:null, note:'',
+    // a "when will it happen" draw sets its own check-back to the date it predicts
+    checkAt: spec.timing ? (() => { const h = timingHorizon(first.cardId); return h ? localIso(h) : null; })() : null,
+    followUp:null, source:'app' };
   sel.res=null; $('#note').value=''; checkBackUI($('#checkback'), state.pending);
   renderReveal(state.pending, $('#reveal'));
   scale('res','res');
@@ -624,9 +640,13 @@ function presetTime(key){
   if(key==='3d'){ d.setDate(d.getDate()+3); d.setHours(9,0,0,0); return d; }
   if(key==='1w'){ d.setDate(d.getDate()+7); d.setHours(9,0,0,0); return d; }
   if(key==='1m'){ d.setMonth(d.getMonth()+1); d.setHours(9,0,0,0); return d; }
+  if(key==='3m'){ d.setMonth(d.getMonth()+3); d.setHours(9,0,0,0); return d; }
+  if(key==='6m'){ d.setMonth(d.getMonth()+6); d.setHours(9,0,0,0); return d; }
+  if(key==='1y'){ d.setFullYear(d.getFullYear()+1); d.setHours(9,0,0,0); return d; }
+  if(key==='2y'){ d.setFullYear(d.getFullYear()+2); d.setHours(9,0,0,0); return d; }
   return null;
 }
-const PRESETS=[['none','No date'],['tonight','Tonight'],['tomorrow','Tomorrow'],['3d','In 3 days'],['1w','In a week'],['1m','In a month'],['pick','Pick a time']];
+const PRESETS=[['none','No date'],['tonight','Tonight'],['tomorrow','Tomorrow'],['3d','In 3 days'],['1w','In a week'],['1m','In a month'],['3m','In 3 months'],['6m','In 6 months'],['1y','In a year'],['2y','In 2 years'],['pick','Pick a time']];
 // renders chips into root; holder.checkAt holds the ISO string (local) or null
 function checkBackUI(root, holder){
   root.innerHTML='';
@@ -1004,12 +1024,31 @@ function renderStudy(){
     el('div',{class:'tile'}, el('div',{class:'v num'}, all.length?Math.round(100*chase/all.length)+'%':'\u2013'), el('div',{class:'l'},'draws within an hour of the last one'))));
   root.appendChild(el('p',{class:'small muted'}, `${all.length.toLocaleString()} draws total: ${H.length.toLocaleString()} recovered from screenshots (${days[0]||''} onward) plus ${app.length} in this ledger. One screenshot burst of the same card within an hour counts as one draw.`));
 
-  // volume, last 10 weeks by day
-  const N=70; const labels=[], vals=[], isApp=[];
-  for(let i=N-1;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i); const k=dayKey(d); vals.push(byDay[k]||0); labels.push(d.getDay()===1 && (i%7===0||true) ? '' : ''); }
-  const wk=[]; for(let i=N-1;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i); wk.push(d.getDate()===1?d.toLocaleDateString([], {month:'short'}):''); }
-  const c1=el('canvas'); root.appendChild(el('div',{class:'panel'}, el('h3',{},'Draws per day, last 10 weeks'), el('p',{class:'small muted',style:'margin-bottom:8px'},'How much you are reaching for the deck. The peak was August.'), c1));
-  requestAnimationFrame(()=>barChart(c1, wk, vals));
+  // volume across the whole record, regrouped so it still reads at any length
+  const firstDay = days[0] ? new Date(days[0] + 'T12:00:00') : new Date(now);
+  const spanDays = Math.max(1, Math.round((now - firstDay) / 86400000) + 1);
+  const bucket = spanDays <= 120 ? 'day' : spanDays <= 800 ? 'week' : 'month';
+  const keyOf = d => {
+    if(bucket === 'day') return dayKey(d);
+    if(bucket === 'week'){ const s2 = new Date(d); s2.setDate(s2.getDate() - ((s2.getDay() + 6) % 7)); return dayKey(s2); }
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1);
+  };
+  const buckets = new Map();
+  for(let d = new Date(firstDay); d <= now; d.setDate(d.getDate() + 1)) buckets.set(keyOf(d), 0);
+  all.forEach(x => { const k = keyOf(x.ts); if(buckets.has(k)) buckets.set(k, buckets.get(k) + 1); });
+  const bkeys = [...buckets.keys()];
+  const vals = bkeys.map(k => buckets.get(k));
+  const labs = bkeys.map(k => {
+    const d = new Date(k.length === 7 ? k + '-01T12:00:00' : k + 'T12:00:00');
+    if(bucket === 'month') return d.getMonth() % 3 === 0 ? d.toLocaleDateString([], {month:'short', year:'2-digit'}) : '';
+    return d.getDate() <= 7 ? d.toLocaleDateString([], {month:'short'}) : '';
+  });
+  const unitWord = bucket === 'day' ? 'day' : bucket === 'week' ? 'week' : 'month';
+  const c1 = el('canvas');
+  root.appendChild(el('div',{class:'panel'}, el('h3',{}, 'Draws per ' + unitWord),
+    el('p',{class:'small muted',style:'margin-bottom:8px'},
+      'Your whole record, ' + fmtDay(days[0] || dayKey(now)) + ' to today. It regroups by week and then by month as the record grows, so years still fit.'), c1));
+  requestAnimationFrame(() => barChart(c1, labs, vals));
 
   // time of day
   const hrs=new Array(24).fill(0); all.forEach(x=>hrs[x.ts.getHours()]++);
