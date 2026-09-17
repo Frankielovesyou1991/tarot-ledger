@@ -313,6 +313,21 @@ let toastT; function toast(m){ const r=$('#toastroot'); r.innerHTML=''; r.append
 // ---------- variants ----------
 function variantsFor(page, cid){ return D.variants[cid].map((v,i)=>({...v,i})).filter(v=>v.pages.includes(page)); }
 function isReversedText(v){ return v.field==='reversed' || /^\s*(reversed|\(?in its reversed)/i.test(v.text) || (v.field==='rw_addendum' && /^reversed/i.test(v.text)) || (v.field==='rw_love' && /^reversed/i.test(v.text)); }
+const YESNO_PAGES = new Set(['yes-or-no-tarot','love-tarot-yes-no','ask-the-oracle','yes-or-no-answer','spiritual-guidance-tarot','secrets-of-your-zodiac-sign','astrology-yes-or-no','tarot-reading-yes-or-no']);
+// Reversed write-ups for a card, best source first: the page it was drawn from,
+// the card page's reversed yes/no when the reading is a yes/no one, the career or
+// money reversed text when that is the page family, then the card page's Reversed.
+function reversedVariantsFor(page, cid){
+  const all = D.variants[cid].map((v,i)=>({...v,i}));
+  const onPage = all.filter(v => v.pages.includes(page) && isReversedText(v));
+  if(onPage.length) return onPage;
+  const cp = f => all.filter(v => v.pages.includes('card-page') && v.field === f);
+  if(YESNO_PAGES.has(page) && cp('Yes or No (reversed)').length) return cp('Yes or No (reversed)');
+  if((page === 'career-tarot' || page === 'money-tarot-spread')){ const r = all.filter(v => v.pages.includes(page) && v.field === 'reversed'); if(r.length) return r; }
+  if(cp('Reversed').length) return cp('Reversed').slice(0,1);
+  const other = all.filter(isReversedText);
+  return other.slice(0,1);
+}
 function pageHasReversed(page){ return D.cards.some(c=>variantsFor(page,c.id).some(isReversedText)); }
 // How many cards each reading deals, and what each position means. Position names
 // for the Celtic Cross are the ones the site's own page uses.
@@ -365,11 +380,11 @@ function pickReading(page, odds, allowRev){
   } else {
     cid = D.cards[rnd(78)].id;
     let vs = variantsFor(page,cid);
-    if(allowRev && pageHasReversed(page)){
-      reversed = Math.random()<0.5;
-      const rv = vs.filter(isReversedText), uv = vs.filter(v=>!isReversedText(v));
-      vs = reversed ? (rv.length?rv:vs) : (uv.length?uv:vs);
-    } else { vs = vs.filter(v=>!isReversedText(v)).length ? vs.filter(v=>!isReversedText(v)) : vs; }
+    const upright = vs.filter(v=>!isReversedText(v)).length ? vs.filter(v=>!isReversedText(v)) : vs;
+    if(allowRev && Math.random() < 0.5){
+      const rv = reversedVariantsFor(page, cid);
+      if(rv.length){ reversed = true; vs = rv; } else { vs = upright; }
+    } else { vs = upright; }
     vidx = vs.map(v=>v.i);
   }
   return {cardId:cid, page, variants:vidx, heading, entry, reversed};
@@ -488,7 +503,7 @@ function oddsUi(){
   const n = spreadSize(p);
   $('#odds').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === state.prefs.odds)));
   $('#odds').style.display = e ? '' : 'none';
-  const hasRev = pageHasReversed(textPage);
+  const hasRev = !D.daily_entries[textPage] && !spec.timing;
   $('#revwrap').style.display = hasRev ? '' : 'none';
   $('#rev').checked = !!state.prefs.rev;
   const bits = [];
@@ -596,7 +611,7 @@ function renderReveal(d, root){
     if(cd.position) box.appendChild(el('div',{class:'pos'}, cd.position));
     box.appendChild(el('img',{src:c.img, alt:c.name + (cd.reversed ? ' reversed' : ''), class:cd.reversed ? 'rev' : ''}));
     box.appendChild(el(multi ? 'h3' : 'h2', {}, leadFor(cd.cardId, cd.heading).head));
-    if(cd.reversed) box.appendChild(el('div',{class:'small muted'}, 'reversed'));
+    if(cd.reversed) box.appendChild(el('div',{class:'small muted'}, 'reversed \u00b7 reading below is the reversed meaning'));
     box.appendChild(el('div',{class:'reading'}, ...readingBlocks(cd)));
     box.appendChild(el('button',{class:'btn ghost', onclick:()=>{ showTab('deck'); renderCard(c.id); }}, 'More about ' + c.name));
     spread.appendChild(box);
@@ -673,7 +688,14 @@ function queueDraws(){
 }
 // What the site's yes/no pages answer for this card. Separate from the user's own
 // later verdict on whether the reading held up.
-function cardVerdict(cardId){
+function cardVerdict(cardId, reversed){
+  if(reversed){
+    const u = cardVerdict(cardId, false);
+    if(!u) return null;
+    if(u.label === 'Yes') return {label:'No (reversed)', cls:'no', mixed:false};
+    if(u.label === 'No') return {label:'Yes (reversed)', cls:'yes', mixed:false};
+    return {label: u.label + ' (reversed)', cls:u.cls, mixed:u.mixed};
+  }
   const answers = (D.variants[cardId]||[])
     .filter(v => (v.field||'').toLowerCase() === 'answer')
     .map(v => v.text.trim().toUpperCase())
@@ -693,7 +715,7 @@ function rowTitle(d){
   if(cs.length > 1){
     out.push(el('span',{class:'cardcount'}, '+' + (cs.length - 1) + ' more'));
   } else {
-    const y = cardVerdict(cs[0].cardId);
+    const y = cardVerdict(cs[0].cardId, cs[0].reversed);
     if(y) out.push(el('span',{class:'ynmini ' + y.cls, title:'The site\u2019s yes/no answer for this card'}, y.label));
   }
   return out;
@@ -822,7 +844,7 @@ function openSheet(id){
   const sh=el('div',{class:'sheet', role:'dialog','aria-label':'Draw details'});
   sh.appendChild(el('div',{class:'grab'}));
   sh.appendChild(el('div',{class:'row',style:'justify-content:space-between'}, el('div',{}, el('div',{class:'eyebrow'}, new Date(d.ts).toLocaleString([], {weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})), el('h2',{}, c.name+(d.reversed?' reversed':''))), el('img',{src:c.img,alt:'',style:'width:56px;border-radius:6px;border:1px solid var(--line)'})));
-  const yn = cardsOf(d).length === 1 ? cardVerdict(d.cardId) : null;
+  const yn = cardsOf(d).length === 1 ? cardVerdict(d.cardId, !!d.reversed) : null;
   if(yn) sh.appendChild(el('div',{}, el('div',{class:'eyebrow'},'Yes or no for this card'),
     el('div',{class:'ynline'}, el('span',{class:'v '+yn.cls}, yn.label),
       el('span',{class:'small muted'}, yn.mixed ? 'the site answers differently on different pages' : 'on the site\u2019s yes/no pages')),
@@ -988,7 +1010,7 @@ function consistencyPanel(){
   } else {
     wrap.appendChild(el('p',{class:'small muted'},'Your questions, exactly as you typed them, each time you asked.'));
     groups.slice(0,8).forEach(items => {
-      const answers = items.map(d => { const y = cardVerdict(d.cardId); return y ? y.label : null; }).filter(Boolean);
+      const answers = items.map(d => { const y = cardVerdict(d.cardId, !!d.reversed); return y ? y.label : null; }).filter(Boolean);
       const agreed = [...new Set(answers)].length <= 1;
       const box = el('div',{class:'alt'},
         el('div',{class:'src'}, 'Asked ' + items.length + ' times'),
